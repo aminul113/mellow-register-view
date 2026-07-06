@@ -137,53 +137,79 @@ function getPanServiceErrorMessage(error: unknown): string {
   const lower = raw.toLowerCase();
 
   if (lower.includes("function not found") || lower.includes("404") || lower.includes("not found")) {
-    return "PAN function `pan-find` is not deployed in this Supabase project. Deploy it from SETUP.md Step 6.5, then test again. Wallet refunded.";
+    return "PAN service route `/api/pan-find` was not found. Redeploy the app on your hosting platform (Vercel / Netlify / Cloudflare). Wallet refunded.";
   }
 
   if (lower.includes("jwt") || lower.includes("unauthorized") || lower.includes("401")) {
-    return "PAN function rejected the session. Logout/login again. If it continues, deploy `pan-find` with JWT verification enabled for this same Supabase project. Wallet refunded.";
+    return "PAN service rejected your session. Logout and login again. Wallet refunded.";
   }
 
   if (lower.includes("failed to fetch") || lower.includes("network") || lower.includes("fetch")) {
-    return "PAN service is unreachable. Check that `pan-find` is deployed to the same Supabase project used in config.ts / Vercel env vars, then redeploy it. Wallet refunded.";
+    return "PAN service is unreachable. Redeploy the app on your hosting platform and confirm PAN_API_KEY / PAN_API_SECRET are set in hosting env vars (no VITE_ prefix). Wallet refunded.";
   }
 
-  return "PAN service returned an error. Check Supabase → Edge Functions → pan-find logs and confirm PAN_API_KEY / PAN_API_SECRET are set in Edge Function Secrets. Wallet refunded.";
+  return "PAN service returned an error. Check your hosting logs (Vercel / Netlify / Cloudflare) and confirm PAN_API_KEY / PAN_API_SECRET are set in hosting env vars — WITHOUT the VITE_ prefix. Wallet refunded.";
+}
+
+async function callPanApi(body: unknown): Promise<{ data: unknown; error: Error | null; status: number }> {
+  const sb = requireSupabase();
+  const { data: sessionRes } = await sb.auth.getSession();
+  const token = sessionRes.session?.access_token;
+  if (!token) {
+    return { data: null, error: new Error("Unauthorized — please login again."), status: 401 };
+  }
+  try {
+    const res = await fetch("/api/pan-find", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const status = res.status;
+    let data: unknown = null;
+    try { data = await res.json(); } catch { /* empty */ }
+    if (!res.ok) {
+      const msg =
+        (data && typeof data === "object" && "message" in data && typeof (data as { message?: unknown }).message === "string"
+          ? (data as { message: string }).message
+          : `HTTP ${status}`);
+      return { data, error: new Error(msg), status };
+    }
+    return { data, error: null, status };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error(String(e)), status: 0 };
+  }
 }
 
 export async function checkPanServiceHealth(): Promise<PanServiceHealth> {
-  const sb = requireSupabase();
-  try {
-    const { data, error } = await sb.functions.invoke("pan-find", {
-      body: { health_check: true },
-    });
+  const { data, error, status } = await callPanApi({ health_check: true });
 
-    if (error) {
-      const raw = error.message || "";
-      const lower = raw.toLowerCase();
-      if (lower.includes("function not found") || lower.includes("404") || lower.includes("not found")) {
-        return { status: "function_missing", message: "pan-find function is not deployed in this Supabase project." };
-      }
-      if (lower.includes("unauthorized") || lower.includes("jwt") || lower.includes("401")) {
-        return { status: "unauthorized", message: "Login session rejected. Logout/login and try again." };
-      }
-      return { status: "error", message: raw || "Health check failed." };
+  if (error) {
+    const raw = error.message || "";
+    const lower = raw.toLowerCase();
+    if (status === 404 || lower.includes("not found")) {
+      return { status: "function_missing", message: "PAN service route `/api/pan-find` not found. Redeploy the app on your hosting platform." };
     }
+    if (status === 401 || lower.includes("unauthorized") || lower.includes("jwt")) {
+      return { status: "unauthorized", message: "Login session rejected. Logout/login and try again." };
+    }
+    return { status: "error", message: getPanServiceErrorMessage(error) };
+  }
 
-    const outcome = data?.outcome;
+  const d = (data ?? {}) as { outcome?: string; message?: string };
+  const outcome = d.outcome;
     if (outcome === "ready") {
-      return { status: "ready", message: data?.message ?? "PAN function is ready." };
+    return { status: "ready", message: d.message ?? "PAN service is ready." };
     }
     if (outcome === "missing_secrets") {
       return {
         status: "missing_secrets",
-        message: data?.message ?? "PAN_API_KEY / PAN_API_SECRET are missing in Edge Function Secrets.",
+      message: d.message ?? "PAN_API_KEY / PAN_API_SECRET are missing in hosting env vars.",
       };
     }
-    return { status: "error", message: data?.message ?? "Unexpected health check response." };
-  } catch (error) {
-    return { status: "error", message: getPanServiceErrorMessage(error) };
-  }
+  return { status: "error", message: d.message ?? "Unexpected health check response." };
 }
 
 export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
@@ -208,7 +234,7 @@ export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
   const searchId: string = row?.search_id;
   if (!searchId) throw new Error("Failed to start search");
 
-  // 2) Call the Supabase Edge Function `pan-find` (keys never touch the browser).
+  // 2) Call the app server route `/api/pan-find` (keys never touch the browser).
   //    Any thrown error / network failure is caught → finalize as 'error' → auto-refund.
   let apiResult: {
     status: "success" | "not_found" | "error";
@@ -218,26 +244,33 @@ export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
     raw: unknown;
     message?: string;
   };
-  try {
-    const { data, error } = await sb.functions.invoke("pan-find", {
-      body: { aadhaar_number: aadhaar },
-    });
-    if (error) throw error;
-    const outcome = (data?.outcome ?? "error") as "success" | "not_found" | "error";
+  {
+    const { data, error } = await callPanApi({ aadhaar_number: aadhaar });
+    if (error) {
+      apiResult = {
+        status: "error",
+        raw: { error: error.message },
+        message: getPanServiceErrorMessage(error),
+      };
+    } else {
+      const d = (data ?? {}) as {
+        outcome?: "success" | "not_found" | "error";
+        pan?: string | null;
+        name?: string | null;
+        dob?: string | null;
+        raw?: unknown;
+        message?: string;
+      };
+      const outcome = (d.outcome ?? "error") as "success" | "not_found" | "error";
     apiResult = {
       status: outcome,
-      pan: data?.pan ?? null,
-      name: data?.name ?? null,
-      dob: data?.dob ?? null,
-      raw: data?.raw ?? { message: data?.message ?? "no raw" },
-      message: data?.message,
-    };
-  } catch (e) {
-    apiResult = {
-      status: "error",
-      raw: { error: e instanceof Error ? e.message : String(e) },
-      message: getPanServiceErrorMessage(e),
-    };
+        pan: d.pan ?? null,
+        name: d.name ?? null,
+        dob: d.dob ?? null,
+        raw: d.raw ?? { message: d.message ?? "no raw" },
+        message: d.message,
+      };
+    }
   }
 
   // 3) finalize (idempotent — safe on retries; auto-refunds on non-success)

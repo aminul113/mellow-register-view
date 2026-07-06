@@ -20,6 +20,7 @@ import { Route as AppSupportRouteImport } from './routes/app.support'
 import { Route as AppPanListRouteImport } from './routes/app.pan-list'
 import { Route as AppPanFinderRouteImport } from './routes/app.pan-finder'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as ApiPanFindRouteImport } from './routes/api/pan-find'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -76,6 +77,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPanFindRoute = ApiPanFindRouteImport.update({
+  id: '/api/pan-find',
+  path: '/api/pan-find',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/api/pan-find': typeof ApiPanFindRoute
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/api/pan-find': typeof ApiPanFindRoute
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/api/pan-find': typeof ApiPanFindRoute
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/api/pan-find'
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/api/pan-find'
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/api/pan-find'
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  ApiPanFindRoute: typeof ApiPanFindRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/pan-find': {
+      id: '/api/pan-find'
+      path: '/api/pan-find'
+      fullPath: '/api/pan-find'
+      preLoaderRoute: typeof ApiPanFindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -273,6 +293,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  ApiPanFindRoute: ApiPanFindRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
