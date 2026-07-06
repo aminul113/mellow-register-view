@@ -6,6 +6,7 @@ import {
   adminFindUser,
   adminListAllSearches,
   adminUpdateSettings,
+  adminForceRefundSearch,
   getSettings,
   isCurrentUserAdmin,
   type AppSettings,
@@ -172,7 +173,27 @@ function SField({ label, value, onChange, type = "text" }: { label: string; valu
 
 function AllSearchesTab() {
   const [rows, setRows] = useState<PanSearch[]>([]);
-  useEffect(() => { adminListAllSearches(500).then(setRows); }, []);
+  const [busy, setBusy] = useState<string | null>(null);
+  const refresh = () => adminListAllSearches(500).then(setRows);
+  useEffect(() => { refresh(); }, []);
+
+  async function forceRefund(id: string) {
+    if (!confirm("Force-refund this pending search? This is safe to run — it's a no-op if already finalized.")) return;
+    setBusy(id);
+    try {
+      await adminForceRefundSearch(id);
+      toast.success("Refunded");
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const isStuck = (r: PanSearch) =>
+    r.status === "pending" && Date.now() - new Date(r.created_at).getTime() > 10 * 60 * 1000;
+
   return (
     <div className="rounded-2xl border bg-card overflow-x-auto">
       <table className="w-full text-sm">
@@ -184,11 +205,12 @@ function AllSearchesTab() {
             <th className="px-5 py-2.5">PAN</th>
             <th className="px-5 py-2.5">Status</th>
             <th className="px-5 py-2.5">Cost</th>
+            <th className="px-5 py-2.5"></th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No searches yet.</td></tr>
+            <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No searches yet.</td></tr>
           ) : rows.map((r) => (
             <tr key={r.id} className="border-t">
               <td className="px-5 py-2.5 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
@@ -197,6 +219,17 @@ function AllSearchesTab() {
               <td className="px-5 py-2.5 font-mono">{r.pan_number ?? "—"}</td>
               <td className="px-5 py-2.5"><StatusPill status={r.status} /></td>
               <td className="px-5 py-2.5">₹ {Number(r.cost).toFixed(2)}</td>
+              <td className="px-5 py-2.5 text-right">
+                {isStuck(r) && (
+                  <button
+                    onClick={() => forceRefund(r.id)}
+                    disabled={busy === r.id}
+                    className="rounded-md border border-amber-300 bg-amber-50 text-amber-800 px-2.5 py-1 text-xs font-semibold hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    {busy === r.id ? "…" : "Force refund"}
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
