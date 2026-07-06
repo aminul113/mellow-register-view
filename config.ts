@@ -11,13 +11,14 @@ export const APP_CONFIG = {
   //    Where to find it: https://supabase.com/dashboard  →  your project
   //                      →  Project Settings  →  API  →  "Project URL"
   //    Example: "https://abcdxyz12345.supabase.co"
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
+  SUPABASE_URL: "https://gcaddharfmuagplvbjnp.supabase.co",
 
   // 2) Your Supabase "anon public" API key
   //    Where to find it: same page as above, under "Project API keys",
   //                      copy the value labeled  anon  public.
   //    It is a long string starting with "eyJ..."
-  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY-HERE",
+  SUPABASE_ANON_KEY:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjYWRkaGFyZm11YWdwbHZiam5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTk3OTAsImV4cCI6MjA5ODg5NTc5MH0.Fp_YN89HnLCye-Jg_CkL3AC8n5T127CPbJnia6CyVQ4",
 };
 
 // =====================================================================
