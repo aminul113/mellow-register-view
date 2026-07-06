@@ -144,3 +144,54 @@ Har variable ke liye:
 ## Netlify / Cloudflare Pages users
 
 Same env vars, sirf dashboard alag. `VITE_` prefix rule same rehta hai (server-side keys me `VITE_` NAHI).
+---
+
+# 🔔 Webhook Setup (Payment Gateway → Aapki App)
+
+Payment gateway ko batana hai ki payment successful hone par kaha callback karna hai. Isse aapki app ko real-time me pata chalta hai aur wallet turant credit ho jata hai (bina user ke wait kiye).
+
+## Webhook URL (yehi apne gateway dashboard me paste karo)
+
+```
+https://<your-vercel-domain>/api/public/payment-callback
+```
+
+**Example:**
+```
+https://myapp.vercel.app/api/public/payment-callback
+https://mydomain.com/api/public/payment-callback
+```
+
+## Details
+
+| Field           | Value                                             |
+|-----------------|---------------------------------------------------|
+| Method          | `POST` (aur `GET` bhi supported)                 |
+| Content-Type    | `application/x-www-form-urlencoded` ya `application/json` |
+| Auth            | Public endpoint (server-to-server, bypass auth)  |
+| Required field  | `order_id` (baaki fields gateway status API se re-verify hote hain — spoof-proof) |
+
+## Kaise kaam karta hai (Security)
+
+1. Gateway callback bhejta hai with `order_id`
+2. Hum aapki gateway ki **status check API** call karke re-verify karte hain (double check)
+3. Sirf jab status `SUCCESS` ho tabhi wallet credit hota hai
+4. Duplicate callbacks safe hain (idempotent — ek order ek hi baar credit hoga)
+
+## RapidX Services me paste karne ke steps
+
+1. Login karo: https://pay.rapidxservices.in/auth/developers
+2. **Callback URL** ya **Webhook URL** field me paste karo:
+   ```
+   https://<your-domain>/api/public/payment-callback
+   ```
+3. **Redirect URL** field me (jaha user redirect ho payment ke baad):
+   ```
+   https://<your-domain>/app/payment-return
+   ```
+   (Ye automatically bhi bhejta hai humara code — order_id ke saath)
+4. Save
+
+## Buyer ke liye ek line summary
+
+> Webhook URL: `https://<your-domain>/api/public/payment-callback` — bas ise apne gateway dashboard me paste karo. Bakhi sab automatic.
