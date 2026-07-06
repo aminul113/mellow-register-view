@@ -30,6 +30,14 @@ export type PanSearch = {
   created_at: string;
 };
 
+export type AdminUser = {
+  user_id: string;
+  name: string;
+  email: string;
+  balance: number;
+  created_at?: string;
+};
+
 // ---------- settings ----------
 export async function getSettings(): Promise<AppSettings> {
   const sb = requireSupabase();
@@ -215,7 +223,17 @@ export async function adminFindUser(email: string) {
   const { data, error } = await sb.rpc("admin_find_user", { _email: email });
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
-  return row as { user_id: string; name: string; email: string; balance: number } | null;
+  return row as AdminUser | null;
+}
+
+export async function adminListUsers(query = "", limit = 50): Promise<AdminUser[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("admin_list_users", {
+    _query: query.trim(),
+    _limit: limit,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AdminUser[];
 }
 
 export async function adminCreditWallet(userId: string, amount: number, note: string) {

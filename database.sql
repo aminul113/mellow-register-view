@@ -337,6 +337,30 @@ language sql security definer set search_path = public as $$
 $$;
 grant execute on function public.admin_find_user(text) to authenticated;
 
+-- Admin: list/search users for manual wallet loading
+create or replace function public.admin_list_users(_query text default '', _limit int default 50)
+returns table(user_id uuid, name text, email text, balance numeric, created_at timestamptz)
+language sql security definer set search_path = public as $$
+  select
+    u.id,
+    coalesce(p.name, split_part(u.email,'@',1)) as name,
+    u.email,
+    coalesce(w.balance, 0) as balance,
+    u.created_at
+  from auth.users u
+  left join public.profiles p on p.id = u.id
+  left join public.wallets w on w.user_id = u.id
+  where public.has_role(auth.uid(),'admin')
+    and (
+      coalesce(trim(_query), '') = ''
+      or lower(u.email) like '%' || lower(trim(_query)) || '%'
+      or lower(coalesce(p.name, '')) like '%' || lower(trim(_query)) || '%'
+    )
+  order by u.created_at desc
+  limit least(greatest(coalesce(_limit, 50), 1), 100)
+$$;
+grant execute on function public.admin_list_users(text,int) to authenticated;
+
 -- Backfill profiles/wallets for users that signed up before the trigger existed
 insert into public.profiles(id, name, email)
 select u.id,

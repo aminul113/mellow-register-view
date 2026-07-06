@@ -4,11 +4,13 @@ import { toast } from "sonner";
 import {
   adminCreditWallet,
   adminFindUser,
+  adminListUsers,
   adminListAllSearches,
   adminUpdateSettings,
   adminForceRefundSearch,
   getSettings,
   isCurrentUserAdmin,
+  type AdminUser,
   type AppSettings,
   type PanSearch,
 } from "@/lib/data-store";
@@ -60,19 +62,40 @@ function AdminPage() {
 
 function UsersTab() {
   const [email, setEmail] = useState("");
-  const [found, setFound] = useState<{ user_id: string; name: string; email: string; balance: number } | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [found, setFound] = useState<AdminUser | null>(null);
   const [amount, setAmount] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  async function loadUsers(q = email) {
+    setSearching(true);
+    try {
+      const rows = await adminListUsers(q, 50);
+      setUsers(rows);
+      if (rows.length === 0) toast.error("User not found");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Users load failed"); }
+    finally { setSearching(false); }
+  }
+
+  useEffect(() => { loadUsers(""); }, []);
 
   async function find() {
     setFound(null);
     if (!email.trim()) return;
+    setSearching(true);
     try {
       const r = await adminFindUser(email.trim());
-      if (!r) { toast.error("User not found"); return; }
+      if (!r) {
+        await loadUsers(email);
+        return;
+      }
       setFound(r);
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Search failed"); }
+      setUsers([r]);
+    } catch {
+      await loadUsers(email);
+    } finally { setSearching(false); }
   }
 
   async function credit() {
@@ -85,6 +108,7 @@ function UsersTab() {
       toast.success(`Credited ₹${amt} to ${found.email}`);
       setAmount(""); setNote("");
       const r = await adminFindUser(found.email); setFound(r);
+      await loadUsers(email);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
   }
@@ -92,12 +116,43 @@ function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-card p-5 space-y-3">
-        <div className="font-semibold">Find user</div>
+        <div className="font-semibold">Find user / wallet load</div>
         <div className="flex gap-2">
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com"
+          <input value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") find(); }} placeholder="Search email or name"
             className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm" />
-          <button onClick={find} className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm hover:bg-primary/90">Find</button>
+          <button onClick={find} disabled={searching} className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm hover:bg-primary/90 disabled:opacity-60">
+            {searching ? "Searching…" : "Search"}
+          </button>
         </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-5 py-2.5">User</th>
+              <th className="px-5 py-2.5">Email</th>
+              <th className="px-5 py-2.5">Balance</th>
+              <th className="px-5 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.length === 0 ? (
+              <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Search karo ya latest users yaha show honge.</td></tr>
+            ) : users.map((u) => (
+              <tr key={u.user_id} className="border-t">
+                <td className="px-5 py-2.5 font-medium">{u.name || "User"}</td>
+                <td className="px-5 py-2.5">{u.email}</td>
+                <td className="px-5 py-2.5 font-semibold text-emerald-700">₹ {Number(u.balance).toFixed(2)}</td>
+                <td className="px-5 py-2.5 text-right">
+                  <button onClick={() => setFound(u)} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                    Select
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {found && (
