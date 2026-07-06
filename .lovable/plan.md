@@ -1,73 +1,48 @@
-## Goal
+## Kyun Admin show nahi ho raha
 
-Isko "fork → 1-click deploy → done" jaisa banana, aur skeleton loading ko sirf main content tak simit karna (sidebar turant aa jaye).
+Aap ne Vercel me `VITE_ADMIN_EMAIL` set kar diya — lekin admin role **frontend se decide nahi hoti**. Role Supabase database me `user_roles` table me store hoti hai, aur ye ek DB trigger deta hai jab koi user signup karta hai — trigger check karta hai ki us user ka email `admin_emails` table me hai ya nahi.
 
----
+`VITE_ADMIN_EMAIL` sirf `config.ts` ka fallback hai (UI/branding side), Supabase trigger use nahi karta. Isliye:
 
-## Part 1 — Hosting easy (GitHub / Codespaces / Vercel / Netlify / Hostinger)
+- Agar `database.sql` chalate waqt line 20 pe `'admin@example.com'` ko apne email se **replace nahi kiya**, to `admin_emails` table me aapka email nahi hai → trigger admin role nahi deta.
+- Agar aap apne admin email se signup **pehle** kar chuke ho aur baad me email add kiya, tab bhi trigger dobara nahi chalega — pehle wale user ke liye role manually daalna padega.
 
-### A. Env-var support add karna (backward compatible)
-- `config.ts` update: pehle `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` / `VITE_ADMIN_EMAIL` check karega, warna file me paste ki hui values use karega.
-- `isConfigured()` dono ko cover karega.
-- `.env.example` file add: `VITE_SUPABASE_URL=`, `VITE_SUPABASE_ANON_KEY=`, `VITE_ADMIN_EMAIL=`.
-- `.gitignore` me `.env` add (safety).
-- Result: Vercel / Netlify / Cloudflare pe buyer file edit kiye bina, sirf env vars set karke deploy kar sake.
+## Fix karne ka plan (2 chhoti cheezein)
 
-### B. GitHub Codespaces ready
-- `.devcontainer/devcontainer.json`: Node 20 + Bun image, port 8080 forward, `postCreateCommand: bun install`, VS Code me file explorer khula.
-- README top pe **"Open in Codespaces"** badge.
-- Codespaces guide `SETUP.md` me: repo fork → Code → Codespaces → `config.ts` browser me edit → commit → deploy.
+### Part A — Aap ke Supabase pe abhi ka fix (1 SQL query)
 
-### C. One-click Deploy buttons (README top)
-- **Deploy to Vercel** badge (`vercel.com/new/clone?repository-url=...&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,VITE_ADMIN_EMAIL`).
-- **Deploy to Netlify** badge (`app.netlify.com/start/deploy?repository=...`) + `netlify.toml` (build `bun run build`, publish `dist`, SPA redirect).
-- **Deploy to Cloudflare Pages** guide (build cmd + output dir + env vars list).
+Supabase Dashboard → SQL Editor me ye paste karke Run karo (email apna daalo — wahi jo Vercel ke `VITE_ADMIN_EMAIL` me hai aur jis se aap login karte ho):
 
-### D. Hostinger / cPanel / static hosting
-- `SETUP.md` me naya section:
-  1. `bun run build` → `dist/` folder banega.
-  2. `dist/*` File Manager se `public_html/` me upload.
-  3. `.htaccess` SPA fallback (React Router deep-link fix) — repo me `public/.htaccess` add karenge taaki build ke saath copy ho jaye.
-  4. `config.ts` me values pehle bhar ke build karo (env vars build me freeze ho jati hain).
+```sql
+-- 1) admin_emails me apna email daalo (agar pehle se hai to skip ho jayega)
+insert into public.admin_emails(email) values ('YOUR-EMAIL@example.com')
+on conflict (email) do nothing;
 
-### E. Docs refresh
-- `README.md`: badges (Codespaces + Vercel + Netlify + Cloudflare) sabse upar, 3 hosting paths clearly listed.
-- `SETUP.md`: 4 hosting flows — Codespaces / Vercel / Netlify / Hostinger — har ek short & click-by-click.
+-- 2) Agar aap pehle se signup kar chuke ho, admin role bhi manually daal do
+insert into public.user_roles(user_id, role)
+select u.id, 'admin'::public.app_role
+from auth.users u
+where lower(u.email) = lower('YOUR-EMAIL@example.com')
+on conflict (user_id, role) do nothing;
+```
 
----
+Iske baad app me **logout → login** karo — sidebar me "Admin Panel" aa jayega.
 
-## Part 2 — Skeleton loading fix (sidebar turant, sirf content shimmer)
+### Part B — Future buyers ke liye ek chhoti code change
 
-Abhi `src/routes/app.tsx` me auth ready hone tak pura page (sidebar + header + content) shimmer karta hai. Fix:
+Taaki naye buyer ko bhi ye issue na aaye, main `database.sql` me trigger ko thoda smart bana dunga: `admin_emails` table ke saath-saath ek Supabase secret `ADMIN_EMAIL` (agar set ho) ko bhi check karega. Fir buyer sirf 1 jagah admin email set kare — Supabase Dashboard → Project Settings → Database → Custom config me `app.admin_email` set karne ka simple option, ya seedhe SQL me insert.
 
-- `AppLayout` ka gating hataake **sidebar + header hamesha render** karo.
-- `<Outlet />` ki jagah, jab tak `ready === false`, ek **main-content-only skeleton** dikhao (stat cards + table rows) — sidebar aur header untouched.
-- Har tab (`app.index`, `app.wallet`, `app.pan-list`, `app.support`, `app.admin`) ke andar ka per-section skeleton wahi rakhenge, kyunki wo data-fetch ke liye alag scenario hai.
-- Header me user name jab tak load na ho, ek chhota inline skeleton chip dikhega (sidebar/header shift na ho).
+Files jo edit hongi:
 
-Result: navigate karte hi sidebar+header solid dikhta hai, sirf beech ka content area shimmer karta hai — professional feel.
+- `database.sql` — trigger me `admin_emails` check ke saath fallback jodna, aur SETUP.md me clearer 1-line instruction.
+- `SETUP.md` — Vercel deploy ke baad "Admin Panel dikhane ke liye ye SQL chalao" wala box add karna (upar wali SQL).
+- `README.md` — env vars table me note: "VITE_ADMIN_EMAIL sirf UI ke liye. Real admin role ke liye `admin_emails` table me email daalna zaroori hai — SETUP.md dekhein."
 
----
+### Jo change NAHI hoga
 
-## Files touched
+- Koi business logic / RLS / edge function / branding / swal / skeleton kuch nahi.
+- Frontend me role check waise ka waisa hi rahega (`isCurrentUserAdmin` → `user_roles` table).
 
-**New**
-- `.devcontainer/devcontainer.json`
-- `.env.example`
-- `netlify.toml`
-- `public/.htaccess`
+## Aap ka action abhi
 
-**Edited**
-- `config.ts` (env-var fallback)
-- `.gitignore` (`.env`)
-- `README.md` (deploy badges + hosting matrix)
-- `SETUP.md` (Codespaces + Vercel + Netlify + Hostinger sections)
-- `src/routes/app.tsx` (sidebar always-on, content-only skeleton)
-
-**Untouched**: business logic, DB, edge function, branding, swal, admin panel — kuch nahi chhedenge.
-
----
-
-## Out of scope
-- Payment gateway, new features, DB schema changes.
-- Custom domain automation (buyer apna khud connect karega — steps docs me).
+Part A wali SQL turant chalao — 30 second me admin dikhne lagega. Part B main tabhi implement karunga jab aap "Approve plan" karoge (source code sell karne ke liye future-proof). but dhyan rakho ki a source code sell karunga to oncer per user ka hona chahiye 
