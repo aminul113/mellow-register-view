@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Wallet, Search, XCircle, ArrowRight } from "lucide-react";
+import { Wallet, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 import { getDashboardStats, type PanSearch } from "@/lib/data-store";
 
 export const Route = createFileRoute("/app/")({
@@ -18,14 +18,15 @@ function HomePage() {
   if (err) return <div className="text-destructive text-sm">{err}</div>;
   if (!stats) return <div className="text-muted-foreground text-sm">Loading…</div>;
 
+  const success = stats.total - stats.rejected;
   const cards = [
-    { label: "Total PAN Searches", value: stats.total, icon: Search, color: "bg-primary/10 text-primary" },
-    { label: "Rejected / Not found", value: stats.rejected, icon: XCircle, color: "bg-destructive/10 text-destructive" },
-    { label: "Wallet Balance", value: `₹ ${stats.balance.toFixed(2)}`, icon: Wallet, color: "bg-emerald-500/10 text-emerald-700" },
+    { label: "Total Success PAN", value: success, icon: CheckCircle2, style: "[background:var(--grad-success)]" },
+    { label: "Rejected PAN", value: stats.rejected, icon: XCircle, style: "[background:var(--grad-danger)]" },
+    { label: "Wallet Balance", value: `₹ ${stats.balance.toFixed(2)}`, icon: Wallet, style: "[background:var(--grad-wallet)]" },
   ];
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-7xl mx-auto w-full">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
         <p className="text-sm text-muted-foreground">Overview of your PAN searches and wallet.</p>
@@ -33,19 +34,26 @@ function HomePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
-          <div key={c.label} className="rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-            <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${c.color}`}>
-              <c.icon className="h-5 w-5" />
+          <div
+            key={c.label}
+            className={`relative overflow-hidden rounded-2xl p-5 sm:p-6 text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${c.style}`}
+          >
+            <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="pointer-events-none absolute right-6 bottom-2 h-24 w-24 rounded-full bg-white/5" />
+            <div className="relative flex items-center gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 backdrop-blur-sm">
+                <c.icon className="h-5 w-5" />
+              </div>
+              <div className="text-sm sm:text-base font-medium opacity-95 truncate">{c.label}</div>
             </div>
-            <div className="mt-4 text-sm text-muted-foreground">{c.label}</div>
-            <div className="text-2xl font-bold text-foreground">{c.value}</div>
+            <div className="relative mt-6 text-3xl sm:text-4xl font-extrabold tracking-tight">{c.value}</div>
           </div>
         ))}
       </div>
 
       <div className="rounded-2xl border bg-card">
         <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="font-semibold">Recent searches</h2>
+          <h2 className="font-semibold">Today Activity</h2>
           <Link to="/app/pan-list" className="text-sm text-primary hover:underline inline-flex items-center gap-1">
             View all <ArrowRight className="h-3.5 w-3.5" />
           </Link>
