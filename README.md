@@ -39,3 +39,9 @@ Instead of editing `config.ts`, set these on Vercel / Netlify / Cloudflare:
 | `VITE_ADMIN_EMAIL` | Email that becomes the first admin |
 
 See `.env.example` for a template.
+
+> ⚠️ **Admin Panel note:** `VITE_ADMIN_EMAIL` is only a frontend fallback.
+> Real admin role is granted by the database. After deploy, insert your email
+> into `public.admin_emails` (or re-run `database.sql` — it has a self-heal
+> block that retro-grants admin to any matching signed-up user). Full steps
+> in [`SETUP.md`](./SETUP.md) → "Admin Panel dikhne ke liye".
