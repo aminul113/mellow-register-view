@@ -120,3 +120,17 @@ function PanListPage() {
     </div>
   );
 }
+
+function MiniStat({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: React.ComponentType<{ className?: string }>; tone: string }) {
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
+        <div className={`grid h-9 w-9 place-items-center rounded-xl ${tone}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <div className="mt-2 text-2xl font-bold">{value}</div>
+    </div>
+  );
+}
