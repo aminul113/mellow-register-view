@@ -1,79 +1,86 @@
-## Plan: PAN Finder issue fix, sellable-source safe
+## Issue: "Failed to send a request to the Edge Function"
 
-Likely issue: `PAN_API_KEY` / `PAN_API_SECRET` must be added in the buyer's own Supabase project under Edge Function secrets, and the `pan-find` function must be deployed to that same Supabase project. If keys were added in Vercel env vars, `config.ts`, `.env`, or a different Supabase project, the app will still show this error.
+Ye error ka matlab: browser Supabase tak pahuncha, lekin `pan-find` naam ka edge function us Supabase project mein **exist hi nahi karta** (ya deploy nahi hua). Isliye request bhejne se pehle hi fail ho rahi hai. Secrets add karne se ye theek nahi hoga — pehle function deploy karna zaroori hai.
 
-### What I will change
+Source-code sellable rahega — koi key repo mein nahi jayegi.
 
-1. **Keep source-code selling safe**
-   - No PAN key or secret will be added to the repo.
-   - No PAN key/secret will be added to `config.ts`, `.env.example`, frontend code, or Vercel env docs.
-   - Each buyer will add their own keys only in Supabase Edge Function secrets.
+---
 
-2. **Improve the PAN error message in the app**
-   - Replace the generic `PAN service unreachable` message with clearer causes:
-     - Edge function not deployed
-     - PAN secrets missing/wrong place
-     - Wrong Supabase project linked
-     - Function/network/provider error
-   - Still auto-refund wallet as it does now.
+### Step-by-step (click by click)
 
-3. **Add buyer-friendly setup docs**
-   - Update `SETUP.md` and `README.md` to say clearly:
-     - Do not put `PAN_API_KEY` / `PAN_API_SECRET` in Vercel env vars.
-     - Do not put them in `config.ts`.
-     - Put them only in Supabase Dashboard → Edge Functions → Secrets.
-     - Then deploy/redeploy `pan-find` to the same Supabase project.
+**STEP 1 — Confirm sahi Supabase project khula hai**
+1. Browser mein kholo: https://supabase.com/dashboard
+2. Top-left project dropdown → wahi project select karo jiska URL `config.ts` / Vercel env `VITE_SUPABASE_URL` mein hai.
+   - Aapka current URL: `https://gcaddharfmuagplvbjnp.supabase.co`
+   - Project ref: **gcaddharfmuagplvbjnp** — yehi select hona chahiye.
 
-4. **Add a safe health-check guide**
-   - Add copy-paste commands/steps for buyers:
-     - Confirm `pan-find` exists in Supabase Edge Functions.
-     - Confirm secrets names are exactly `PAN_API_KEY` and `PAN_API_SECRET`.
-     - Redeploy function after setting secrets.
-   - No command will print or expose the secret values.
+**STEP 2 — Check karo `pan-find` function hai ya nahi**
+1. Left sidebar → **Edge Functions** click karo.
+2. List mein `pan-find` dhundo.
+   - **Agar nahi dikh raha** → Step 3 karo (deploy).
+   - **Agar dikh raha hai** → Step 4 pe jao (secrets check).
 
-5. **Optional app-side diagnostic helper**
-   - Add an Admin Panel status note/button that tests only whether the edge function responds.
-   - It will never show secret values.
-   - It will only display statuses like `Function missing`, `Secrets missing`, `Provider error`, or `Ready`.
+**STEP 3 — `pan-find` deploy karo (agar missing hai)**
 
-### Technical details
+Option A — apne computer se (recommended, ek baar ka kaam):
+1. Terminal kholo, project folder mein jao.
+2. Supabase CLI install (agar nahi hai):
+   ```
+   npm i -g supabase
+   ```
+3. Login:
+   ```
+   supabase login
+   ```
+4. Project link:
+   ```
+   supabase link --project-ref gcaddharfmuagplvbjnp
+   ```
+5. Deploy:
+   ```
+   supabase functions deploy pan-find --no-verify-jwt
+   ```
+6. Terminal mein "Deployed Function pan-find" dikhna chahiye.
 
-Current flow:
+Option B — Dashboard se manual:
+1. Edge Functions → **Create a new function** → naam: `pan-find`.
+2. `supabase/functions/pan-find/index.ts` ka pura code copy-paste karo.
+3. **Deploy** click karo.
 
-```text
-PAN Finder page
-→ debit_wallet_for_search RPC
-→ Supabase Edge Function: pan-find
-→ PanManager API using PAN_API_KEY / PAN_API_SECRET
-→ finalize_search RPC
-→ success OR refund
+**STEP 4 — Secrets confirm karo (sahi jagah)**
+1. Left sidebar → **Edge Functions** → top pe **Secrets** (ya **Manage secrets**) tab.
+2. Dono secrets exact naam se hone chahiye (case-sensitive):
+   - `PAN_API_KEY`
+   - `PAN_API_SECRET`
+3. Agar naam thoda alag hai (jaise `PANAPI_KEY`, `pan_api_key`, `PAN-API-KEY`) → delete karke sahi naam se dubara add karo.
+4. Value paste karke **Save**.
+
+> ⚠️ Ye secrets **sirf yahan** hone chahiye. Vercel env vars mein, `config.ts` mein, ya `.env` mein NA daalo — warna resell karte waqt buyer ki key leak ho jayegi.
+
+**STEP 5 — Function redeploy (secrets ke baad zaroori)**
+Secrets add/change karne ke baad function ko dubara deploy karo warna naye secrets pick nahi honge:
 ```
-
-The current pasted error means the browser call to `pan-find` failed before a valid success/not-found response was returned. Most common causes:
-
-```text
-1. pan-find edge function not deployed
-2. PAN_API_KEY / PAN_API_SECRET added in wrong place
-3. secrets added to different Supabase project
-4. function deployed before secrets and not redeployed/refreshed
-5. provider credentials invalid or provider unavailable
+supabase functions deploy pan-find --no-verify-jwt
 ```
+(Ya dashboard mein function open karke **Deploy** dubara click karo.)
 
-### Immediate fix for your current deployment
+**STEP 6 — App mein verify**
+1. App mein login (agar logged in ho to logout → login dubara — fresh JWT ke liye).
+2. **Admin Panel → Settings** tab → **"Check PAN setup"** button click.
+3. Expected result: **"PAN function is deployed and provider secrets are present."**
+   - Agar "function missing" aaye → Step 3 dubara.
+   - Agar "missing secrets" aaye → Step 4 + Step 5.
+   - Agar "ready" aaye → PAN Finder try karo.
 
-In your Supabase project connected to this deployed app:
+---
 
-```text
-Supabase Dashboard
-→ Edge Functions
-→ Manage secrets
-→ Add exactly:
-   PAN_API_KEY
-   PAN_API_SECRET
-→ Edge Functions
-→ confirm pan-find exists
-→ redeploy pan-find if needed
-→ logout/login in app and test again
-```
+### Sabse common wajah aapke case mein
 
-If you approve, I’ll update the app/docs so this is clear for every buyer and easier to debug without exposing anyone’s PAN API keys.
+Error text "Failed to send a request to the Edge Function" = **function deployed hi nahi hai**. Sirf Supabase dashboard mein secrets add karne se function auto-create nahi hota. **STEP 3 (deploy)** karna hi actual fix hai.
+
+### Source-code sell safety (already handled)
+- Repo mein koi PAN key nahi.
+- `SETUP.md` mein buyer ke liye yehi steps documented hain.
+- Har buyer apni Supabase, apni keys, apna deploy karega — aapki keys aur unki keys kabhi mix nahi hongi.
+
+Agar Step 2 mein `pan-find` dikh raha hai ya nahi — mujhe screenshot bhejo ya bata do, main aage exactly wahi step guide karunga.
