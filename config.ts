@@ -10,6 +10,10 @@
 // priority over the values below — useful for Vercel / Netlify / Cloudflare
 // where you don't want to edit files. If env vars are absent, the values
 // pasted here are used (works for Codespaces / Hostinger static builds).
+//
+// IMPORTANT for source-code selling: never paste PAN_API_KEY or PAN_API_SECRET
+// in this file. PAN provider keys belong only in Supabase → Edge Functions →
+// Secrets for each buyer's own project.
 const ENV = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
 
 export const APP_CONFIG = {

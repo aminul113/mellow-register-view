@@ -7,11 +7,13 @@ import {
   adminListAllSearches,
   adminUpdateSettings,
   adminForceRefundSearch,
+  checkPanServiceHealth,
   getSettings,
   isCurrentUserAdmin,
   type AdminUser,
   type AppSettings,
   type PanSearch,
+  type PanServiceHealth,
 } from "@/lib/data-store";
 import { StatusPill } from "./app.index";
 import { useRefreshBranding } from "@/lib/branding";
@@ -195,8 +197,26 @@ function UsersTab() {
 function SettingsTab() {
   const [s, setS] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [panHealth, setPanHealth] = useState<PanServiceHealth | null>(null);
+  const [checkingPan, setCheckingPan] = useState(false);
   const refreshBranding = useRefreshBranding();
   useEffect(() => { getSettings().then(setS); }, []);
+
+  async function checkPan() {
+    setCheckingPan(true);
+    try {
+      const status = await checkPanServiceHealth();
+      setPanHealth(status);
+      if (status.status === "ready") swalOk("PAN service ready", status.message);
+      else swalError("PAN setup issue", status.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Health check failed.";
+      setPanHealth({ status: "error", message });
+      swalError("PAN setup issue", message);
+    } finally {
+      setCheckingPan(false);
+    }
+  }
 
   async function save() {
     if (!s) return;
@@ -274,6 +294,25 @@ function SettingsTab() {
         <SField label="Support WhatsApp (with country code, e.g. 919999999999)"
           value={s.support_whatsapp} onChange={(v) => setS({ ...s, support_whatsapp: v })} />
         <SField label="Support email" value={s.support_email} onChange={(v) => setS({ ...s, support_email: v })} type="email" />
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div>
+          <div className="font-semibold">PAN API setup check</div>
+          <p className="text-xs text-muted-foreground">Checks only deployment + secret presence. API key values are never shown.</p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-medium">
+              Status: <span className={panHealth?.status === "ready" ? "text-emerald-700" : "text-muted-foreground"}>{panHealth ? panHealth.status.replace(/_/g, " ") : "Not checked"}</span>
+            </div>
+            {panHealth && <p className="mt-1 text-xs text-muted-foreground">{panHealth.message}</p>}
+          </div>
+          <button type="button" onClick={checkPan} disabled={checkingPan}
+            className="rounded-lg border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted/40 disabled:opacity-60">
+            {checkingPan ? "Checking…" : "Check PAN setup"}
+          </button>
+        </div>
       </div>
 
       <button onClick={save} disabled={saving}

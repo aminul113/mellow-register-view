@@ -19,6 +19,11 @@ project. Fully isolated — no central server.
 1. **`config.ts`** — paste your Supabase URL + anon key (OR set env vars on host)
 2. **`database.sql`** — paste into Supabase SQL Editor and Run
 
+PAN Finder provider keys are different: add `PAN_API_KEY` and
+`PAN_API_SECRET` only in Supabase → Edge Functions → Secrets, then deploy
+`pan-find`. Never commit provider keys to GitHub, `config.ts`, `.env`, Vercel,
+Netlify, or Cloudflare env vars.
+
 **👉 Full guide: [`SETUP.md`](./SETUP.md)**
 
 ## Local quick start
@@ -39,6 +44,10 @@ Instead of editing `config.ts`, set these on Vercel / Netlify / Cloudflare:
 | `VITE_ADMIN_EMAIL` | Email that becomes the first admin |
 
 See `.env.example` for a template.
+
+> **PAN API note:** `PAN_API_KEY` / `PAN_API_SECRET` are not frontend env vars.
+> They must be added in Supabase Dashboard → Edge Functions → Secrets for each
+> buyer's own project. After adding them, deploy/redeploy `pan-find`.
 
 > ⚠️ **Admin Panel note:** `VITE_ADMIN_EMAIL` is only a frontend fallback.
 > Real admin role is granted by the database. After deploy, insert your email

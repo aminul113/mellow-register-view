@@ -26,11 +26,14 @@ Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common
 
 1. README ka **Deploy to Vercel** button click.
 2. Repo import ka option → apne fork ka URL do.
-3. Env vars maango to ye 3 daalo:
+3. Env vars maango to sirf ye 3 daalo:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_ADMIN_EMAIL`
 4. **Deploy**. 2 min me live URL mil jayega.
+
+> `PAN_API_KEY` / `PAN_API_SECRET` Vercel env vars me mat daalo. Wo sirf
+> Supabase → Edge Functions → Secrets me jayenge (Step 6.5).
 
 > ⚠️ **Admin Panel dikhne ke liye** (Vercel/Netlify/Cloudflare — sab ke liye same):
 > Env var `VITE_ADMIN_EMAIL` sirf frontend fallback hai. Real admin role
@@ -203,6 +206,11 @@ Browser me `http://localhost:8080` refresh karo. Ab register/login screen kholeg
 
 PAN Finder feature ke liye ek Supabase **Edge Function** deploy karni hai. Ye function aapke provider API keys ko secure server-side rakhti hai — browser me kabhi expose nahi hoti.
 
+> Source code sell karne ke liye safe rule: buyer ki PAN provider keys kabhi
+> GitHub repo, `config.ts`, `.env`, Vercel, Netlify, ya Cloudflare env vars me
+> nahi jayengi. Har buyer apne Supabase project ke Edge Function Secrets me
+> khud ki `PAN_API_KEY` / `PAN_API_SECRET` add karega.
+
 ### 6.5a — Provider keys add karo (secure, secret)
 
 1. Supabase dashboard → left sidebar → **Edge Functions**
@@ -214,7 +222,9 @@ PAN Finder feature ke liye ek Supabase **Edge Function** deploy karni hai. Ye fu
 | `PAN_API_KEY` | Aapki PanManager AI se mili `x-api-key` |
 | `PAN_API_SECRET` | Aapki PanManager AI se mili `x-api-secret` |
 
-> Ye values sirf server par rehti hain. Kabhi bhi `config.ts` me ya code me mat paste karna.
+> Ye values sirf server par rehti hain. Kabhi bhi `config.ts`, `.env`, Vercel
+> env vars, Netlify env vars, Cloudflare env vars, ya code me mat paste karna.
+> Secret names exact same hone chahiye: `PAN_API_KEY` and `PAN_API_SECRET`.
 
 ### 6.5b — Edge function deploy karo
 
@@ -235,6 +245,25 @@ supabase functions deploy pan-find
 `<YOUR-PROJECT-REF>` = aapke Supabase project URL ka pehla part (jaise `abcdxyz12345` from `https://abcdxyz12345.supabase.co`).
 
 Deploy successful hone par terminal me green message aayega: `Deployed Function pan-find`.
+
+> Agar secrets add karne ke baad bhi error aaye, `supabase functions deploy pan-find`
+> dobara chalao. Function aur secrets dono **same Supabase project** me hone chahiye
+> jiska URL/key `config.ts` ya hosting env vars me laga hai.
+
+### 6.5b-verify — Safe check (secret value show nahi hoti)
+
+App me admin login → **Admin Panel → Settings → PAN API setup check** →
+**Check PAN setup** dabao.
+
+Status ka matlab:
+
+| Status | Matlab | Fix |
+|--------|--------|-----|
+| `ready` | Function deployed + secrets present | PAN search test karo |
+| `missing secrets` | Function hai, par keys missing/wrong name | Edge Function Secrets me exact names add karo |
+| `function missing` | `pan-find` deploy nahi hua | `supabase functions deploy pan-find` chalao |
+| `unauthorized` | Login/session issue | Logout → login, phir test |
+| `error` | Network/provider/config issue | Function logs dekho + same project verify karo |
 
 ### 6.5c — Test karo
 
