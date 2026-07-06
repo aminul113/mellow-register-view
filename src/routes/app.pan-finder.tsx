@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Search, CheckCircle2, XCircle, Loader2, CreditCard, Copy, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, CheckCircle2, XCircle, Loader2, CreditCard, Copy, Wallet, MessageCircle, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { runPanSearch, type PanSearchResult } from "@/lib/data-store";
+import { runPanSearch, getSettings, type PanSearchResult, type AppSettings } from "@/lib/data-store";
 
 export const Route = createFileRoute("/app/pan-finder")({
   component: PanFinderPage,
@@ -13,6 +13,9 @@ function PanFinderPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PanSearchResult | null>(null);
   const [lowBalance, setLowBalance] = useState(false);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  useEffect(() => { getSettings().then(setSettings).catch(() => {}); }, []);
 
   const clean = aadhaar.replace(/\D/g, "").slice(0, 12);
   const isValid = /^[0-9]{12}$/.test(clean);
@@ -96,10 +99,31 @@ function PanFinderPage() {
           <Wallet className="h-5 w-5 text-amber-700 mt-0.5" />
           <div className="flex-1">
             <div className="font-semibold text-amber-900">Insufficient wallet balance</div>
-            <p className="text-sm text-amber-800 mt-0.5">Aapka wallet balance search karne ke liye kam hai. Top-up ke liye admin se contact karein.</p>
-            <Link to="/app/wallet" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700">
-              Go to Wallet
-            </Link>
+            <p className="text-sm text-amber-800 mt-0.5">Your wallet balance is too low for this search. Contact admin below to top-up, or open your wallet.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {settings?.support_whatsapp && (
+                <a href={`https://wa.me/${settings.support_whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Hi, I want to add balance to my wallet.")}`}
+                   target="_blank" rel="noreferrer"
+                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-700">
+                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                </a>
+              )}
+              {settings?.support_phone && (
+                <a href={`tel:${settings.support_phone}`}
+                   className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white text-amber-800 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100">
+                  <Phone className="h-3.5 w-3.5" /> Call
+                </a>
+              )}
+              {settings?.support_email && (
+                <a href={`mailto:${settings.support_email}?subject=Wallet%20top-up`}
+                   className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white text-amber-800 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100">
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </a>
+              )}
+              <Link to="/app/wallet" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700">
+                Go to Wallet
+              </Link>
+            </div>
           </div>
         </div>
       )}
