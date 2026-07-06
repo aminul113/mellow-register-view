@@ -1,64 +1,82 @@
+# Sellable Source Code — "Bring Your Own Supabase" Setup
 
-## Goal
-Create beautiful Register and Login pages that visually match the uploaded reference — split layout with a deep green left panel (headline + illustration) and a clean white right panel with the form. Smooth animations, rounded inputs, matching green buttons.
+Goal: Aap apna PAN-finder code sell karo. Har buyer apna khud ka Supabase project use kare. Code me ek **first-run Setup Wizard** hoga jaha buyer apna Supabase URL + anon key daale, aur ek ready SQL script mile jo unke Supabase SQL Editor me paste karke pura schema (tables, RLS, policies, triggers) auto-create kar de. Uske baad us buyer ke app me jo bhi user signup karega, wo **usi buyer ke Supabase** me store hoga — completely isolated per buyer.
 
-## Pages
+Haan, ye 100% possible hai. Neeche exact system:
 
-### 1. `/register` — Register new account
-Left panel (green `#0f5132`-ish):
-- Handwritten-style headline: "Lost your PAN card? Find it instantly."
-- Subtitle: "Trace the truth."
-- Uploaded illustration (`photo_6224495368666288683_y.jpg`) displayed inside a soft rounded card with curved corners, fitted nicely.
+## Architecture (simple)
 
-Right panel (white):
-- Title: "Register new account"
-- Fields (only these — no phone, no Cloudflare, no T&C checkbox):
-  - Name
-  - Email
-  - Password (with eye toggle to show/hide)
-- Green "REGISTER" button (full width, rounded, hover + press animations)
-- Footer: "Have an account? Login" → links to `/login`
+```
+Buyer A downloads code ──► runs locally / hosts on own server
+        │
+        ▼
+  /setup wizard (first run)
+        │  paste: SUPABASE_URL + SUPABASE_ANON_KEY
+        │  paste: SQL script into their Supabase SQL Editor
+        ▼
+  Config saved to localStorage + .env.local
+        │
+        ▼
+  App boots with THEIR Supabase client
+        │
+        ▼
+  End users signup/login ──► stored in Buyer A's Supabase only
+```
 
-### 2. `/login` — Login
-Same split layout, same left panel.
-Right panel:
-- Title: "Login to your account"
-- Fields: Email, Password (with eye toggle)
-- Green "LOGIN" button (same style as Register)
-- Footer: "New here? Register" → links to `/register`
-- On successful login → redirect to `/dashboard`
+Buyer B does the same with his own Supabase → fully isolated. Aap ka koi central server nahi.
 
-### 3. `/dashboard` — Placeholder
-Simple protected-looking dashboard page shown after login/register success, with a welcome message and logout button. Same green accent styling.
+## What I will build
 
-## Design system (tokens in `src/styles.css`)
-- Primary green: deep forest green matching reference (`oklch` equivalent of ~#0f5132)
-- Primary-hover: slightly lighter green
-- Background: white right side, green left side
-- Rounded inputs (rounded-lg), soft borders, focus ring in primary green
-- Handwritten font for hero headline (Google Font: "Caveat" or "Kalam"), body: Inter
-- Smooth transitions: 200–300ms on buttons/inputs; subtle fade + slide-in on card mount
-- Buttons: white text on green, hover lift + shadow, active scale-95, disabled state
+### 1. Runtime Supabase config (no hardcoded keys)
+- New file `src/lib/supabase-config.ts` — reads config in this order:
+  1. `localStorage` (`lovable_supabase_config`) — set by wizard
+  2. `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — for buyers who prefer `.env`
+- New file `src/integrations/supabase/client.ts` — creates client lazily from above config. If missing → returns `null` and app redirects to `/setup`.
 
-## Auth behavior (scope for this pass)
-No backend requested. Implement as client-side only:
-- Store account in `localStorage` on register (name, email, password)
-- Login validates against stored credentials
-- On success → navigate to `/dashboard`
-- Basic zod validation (email format, password min 6 chars, name required) with inline error messages
+### 2. Setup Wizard route `/setup`
+Three-step UI:
+- **Step 1 — Credentials:** Inputs for Supabase URL + anon key + "Test connection" button (does a harmless `auth.getSession()` call).
+- **Step 2 — Database:** Shows the full SQL script in a code block with **Copy** button + link "Open Supabase SQL Editor". Instructions: paste → Run. A "Verify schema" button checks that required tables exist.
+- **Step 3 — Done:** Save config to localStorage, redirect to `/register`.
 
-If you'd like real authentication (persistent accounts, secure passwords, email verification), I can enable Lovable Cloud in a follow-up — just say the word.
+Also a "Reconfigure" link on the setup page to overwrite existing config.
 
-## Files to create/modify
-- `src/styles.css` — add green primary token + font import via `<link>` in root
-- `src/routes/__root.tsx` — add Google Fonts `<link>`, update title/meta to "PANME SHOP"
-- `src/routes/register.tsx` — Register page
-- `src/routes/login.tsx` — Login page
-- `src/routes/dashboard.tsx` — Dashboard placeholder
-- `src/routes/index.tsx` — redirect to `/register` (or a small landing that links to both)
-- `src/components/AuthLayout.tsx` — shared split-screen layout
-- Add uploaded illustration as a Lovable asset via `lovable-assets`
+### 3. Setup guard
+- `src/routes/__root.tsx` — if no Supabase config found and current route ≠ `/setup`, redirect to `/setup`.
+
+### 4. SQL bootstrap script `supabase/setup.sql`
+One-paste script that creates everything the app needs. Includes:
+- `profiles` table (linked to `auth.users`, cascade delete)
+- `app_role` enum + `user_roles` table + `has_role()` security-definer function
+- Any PAN-finder specific tables (e.g. `pan_reports`)
+- All required `GRANT`s to `authenticated` / `service_role`
+- RLS enabled + policies (users read/write only their own rows; admins via `has_role`)
+- Trigger `on_auth_user_created` → auto-insert profile row
+- Storage bucket (if we later add image uploads) — optional, off by default
+
+### 5. Docs `README.md` (buyer-facing)
+Short setup guide:
+1. `bun install`
+2. `bun run dev`
+3. Open `/setup`, paste Supabase URL + anon key
+4. Copy SQL → paste into Supabase SQL Editor → Run
+5. Deploy anywhere (Vercel, Cloudflare, own VPS)
+
+License note that you can customize (single-buyer license).
+
+## What I will NOT do
+- No central licensing server / phone-home. (If you want per-buyer license keys later, that's a separate feature.)
+- No changes to the current UI/theme/colors — only add wizard + config layer.
+- Won't touch existing pages beyond wiring the new client + guard.
+
+## Files to add/edit
+- add: `src/lib/supabase-config.ts`
+- add: `src/routes/setup.tsx`
+- add: `supabase/setup.sql`
+- add: `README.md` (buyer setup guide)
+- edit: `src/integrations/supabase/client.ts` (make lazy/runtime-based)
+- edit: `src/routes/__root.tsx` (setup guard)
 
 ## Confirm before I build
-1. OK to use `localStorage` for now (no real backend)?
-2. Should `/` redirect to `/register`, or show a small landing page?
+1. **Right now Lovable Cloud (Supabase) is NOT enabled** in this project. For a sellable template it's actually better — the buyer plugs in their own. Should I proceed with the pure "bring your own Supabase" model above? (Recommended.)
+2. Any extra tables beyond `profiles` + `user_roles` + `pan_reports` you want in the SQL script?
