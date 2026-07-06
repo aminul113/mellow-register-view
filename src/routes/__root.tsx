@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { isConfigured } from "../lib/supabase-config";
 import { NotConfiguredScreen } from "../components/NotConfiguredScreen";
+import { BrandingProvider } from "../lib/branding";
 
 function NotFoundComponent() {
   return (
@@ -127,7 +128,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      {isConfigured() ? <Outlet /> : <NotConfiguredScreen />}
+      {isConfigured() ? (
+        <BrandingProvider>
+          <Outlet />
+        </BrandingProvider>
+      ) : (
+        <NotConfiguredScreen />
+      )}
     </QueryClientProvider>
   );
 }
