@@ -35,6 +35,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
+  --color-left-blob: var(--left-blob);
+  --color-left-dot: var(--left-dot);
   --font-hand: "Caveat", cursive;
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
