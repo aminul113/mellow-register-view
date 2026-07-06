@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Phone, Mail } from "lucide-react";
+import { MessageCircle, Phone, Mail, HeadphonesIcon } from "lucide-react";
 import { getSettings, type AppSettings } from "@/lib/data-store";
 
 export const Route = createFileRoute("/app/support")({
@@ -13,10 +13,23 @@ function SupportPage() {
   const has = s && (s.support_phone || s.support_whatsapp || s.support_email);
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Support</h1>
         <p className="text-sm text-muted-foreground">Get in touch with our team.</p>
+      </div>
+
+      <div className="relative overflow-hidden rounded-2xl [background:var(--grad-success)] text-white p-6 shadow-lg">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur-sm">
+            <HeadphonesIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="text-lg font-bold">We are here to help</div>
+            <div className="text-sm opacity-90">Reach out for wallet top-ups, PAN issues or anything else.</div>
+          </div>
+        </div>
       </div>
 
       {!has ? (
