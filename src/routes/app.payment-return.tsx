@@ -9,7 +9,7 @@ type VerifyState =
   | { kind: "pending" }
   | { kind: "failed"; message?: string };
 
-export const Route = createFileRoute("/app/wallet/payment-return")({
+export const Route = createFileRoute("/app/payment-return")({
   validateSearch: (search: Record<string, unknown>) => ({
     order_id: typeof search.order_id === "string" ? search.order_id : "",
   }),

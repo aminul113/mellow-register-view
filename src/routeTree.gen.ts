@@ -17,13 +17,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppWalletRouteImport } from './routes/app.wallet'
 import { Route as AppSupportRouteImport } from './routes/app.support'
+import { Route as AppPaymentReturnRouteImport } from './routes/app.payment-return'
 import { Route as AppPanListRouteImport } from './routes/app.pan-list'
 import { Route as AppPanFinderRouteImport } from './routes/app.pan-finder'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as ApiPaymentVerifyRouteImport } from './routes/api/payment-verify'
 import { Route as ApiPaymentCreateRouteImport } from './routes/api/payment-create'
 import { Route as ApiPanFindRouteImport } from './routes/api/pan-find'
-import { Route as AppWalletPaymentReturnRouteImport } from './routes/app.wallet.payment-return'
 import { Route as ApiPublicPaymentCallbackRouteImport } from './routes/api/public/payment-callback'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -66,6 +66,11 @@ const AppSupportRoute = AppSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPaymentReturnRoute = AppPaymentReturnRouteImport.update({
+  id: '/payment-return',
+  path: '/payment-return',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPanListRoute = AppPanListRouteImport.update({
   id: '/pan-list',
   path: '/pan-list',
@@ -96,11 +101,6 @@ const ApiPanFindRoute = ApiPanFindRouteImport.update({
   path: '/api/pan-find',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppWalletPaymentReturnRoute = AppWalletPaymentReturnRouteImport.update({
-  id: '/payment-return',
-  path: '/payment-return',
-  getParentRoute: () => AppWalletRoute,
-} as any)
 const ApiPublicPaymentCallbackRoute =
   ApiPublicPaymentCallbackRouteImport.update({
     id: '/api/public/payment-callback',
@@ -120,11 +120,11 @@ export interface FileRoutesByFullPath {
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
+  '/app/payment-return': typeof AppPaymentReturnRoute
   '/app/support': typeof AppSupportRoute
-  '/app/wallet': typeof AppWalletRouteWithChildren
+  '/app/wallet': typeof AppWalletRoute
   '/app/': typeof AppIndexRoute
   '/api/public/payment-callback': typeof ApiPublicPaymentCallbackRoute
-  '/app/wallet/payment-return': typeof AppWalletPaymentReturnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -137,11 +137,11 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
+  '/app/payment-return': typeof AppPaymentReturnRoute
   '/app/support': typeof AppSupportRoute
-  '/app/wallet': typeof AppWalletRouteWithChildren
+  '/app/wallet': typeof AppWalletRoute
   '/app': typeof AppIndexRoute
   '/api/public/payment-callback': typeof ApiPublicPaymentCallbackRoute
-  '/app/wallet/payment-return': typeof AppWalletPaymentReturnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -156,11 +156,11 @@ export interface FileRoutesById {
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
+  '/app/payment-return': typeof AppPaymentReturnRoute
   '/app/support': typeof AppSupportRoute
-  '/app/wallet': typeof AppWalletRouteWithChildren
+  '/app/wallet': typeof AppWalletRoute
   '/app/': typeof AppIndexRoute
   '/api/public/payment-callback': typeof ApiPublicPaymentCallbackRoute
-  '/app/wallet/payment-return': typeof AppWalletPaymentReturnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -176,11 +176,11 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
+    | '/app/payment-return'
     | '/app/support'
     | '/app/wallet'
     | '/app/'
     | '/api/public/payment-callback'
-    | '/app/wallet/payment-return'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -193,11 +193,11 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
+    | '/app/payment-return'
     | '/app/support'
     | '/app/wallet'
     | '/app'
     | '/api/public/payment-callback'
-    | '/app/wallet/payment-return'
   id:
     | '__root__'
     | '/'
@@ -211,11 +211,11 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
+    | '/app/payment-return'
     | '/app/support'
     | '/app/wallet'
     | '/app/'
     | '/api/public/payment-callback'
-    | '/app/wallet/payment-return'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -288,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSupportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/payment-return': {
+      id: '/app/payment-return'
+      path: '/payment-return'
+      fullPath: '/app/payment-return'
+      preLoaderRoute: typeof AppPaymentReturnRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/pan-list': {
       id: '/app/pan-list'
       path: '/pan-list'
@@ -330,13 +337,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPanFindRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/wallet/payment-return': {
-      id: '/app/wallet/payment-return'
-      path: '/payment-return'
-      fullPath: '/app/wallet/payment-return'
-      preLoaderRoute: typeof AppWalletPaymentReturnRouteImport
-      parentRoute: typeof AppWalletRoute
-    }
     '/api/public/payment-callback': {
       id: '/api/public/payment-callback'
       path: '/api/public/payment-callback'
@@ -347,24 +347,13 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AppWalletRouteChildren {
-  AppWalletPaymentReturnRoute: typeof AppWalletPaymentReturnRoute
-}
-
-const AppWalletRouteChildren: AppWalletRouteChildren = {
-  AppWalletPaymentReturnRoute: AppWalletPaymentReturnRoute,
-}
-
-const AppWalletRouteWithChildren = AppWalletRoute._addFileChildren(
-  AppWalletRouteChildren,
-)
-
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppPanFinderRoute: typeof AppPanFinderRoute
   AppPanListRoute: typeof AppPanListRoute
+  AppPaymentReturnRoute: typeof AppPaymentReturnRoute
   AppSupportRoute: typeof AppSupportRoute
-  AppWalletRoute: typeof AppWalletRouteWithChildren
+  AppWalletRoute: typeof AppWalletRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -372,8 +361,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppPanFinderRoute: AppPanFinderRoute,
   AppPanListRoute: AppPanListRoute,
+  AppPaymentReturnRoute: AppPaymentReturnRoute,
   AppSupportRoute: AppSupportRoute,
-  AppWalletRoute: AppWalletRouteWithChildren,
+  AppWalletRoute: AppWalletRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

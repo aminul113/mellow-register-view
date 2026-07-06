@@ -131,7 +131,7 @@ export const Route = createFileRoute("/api/payment-create")({
         const originHeader =
           request.headers.get("origin") ||
           `${new URL(request.url).protocol}//${request.headers.get("host") ?? new URL(request.url).host}`;
-        const redirectUrl = `${originHeader}/app/wallet/payment-return?order_id=${encodeURIComponent(orderId)}`;
+        const redirectUrl = `${originHeader}/app/payment-return?order_id=${encodeURIComponent(orderId)}`;
 
         // --- Provider call (form-encoded) ---
         const { FIELDS, CREATE_ORDER_PATH, RESPONSE } = APP_CONFIG.PAYMENT;
