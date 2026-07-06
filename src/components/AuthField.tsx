@@ -49,7 +49,7 @@ export function AuthButton({
     <button
       {...rest}
       disabled={loading || rest.disabled}
-      className="w-full rounded-lg bg-primary py-3.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-200 hover:bg-[var(--primary-hover)] hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full cursor-pointer rounded-lg bg-primary py-3.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-200 hover:bg-[var(--primary-hover)] hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {loading ? "Please wait..." : children}
     </button>
