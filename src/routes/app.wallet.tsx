@@ -1,25 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Wallet, MessageCircle, Mail, Phone } from "lucide-react";
-import { getMyWallet, listMyTransactions, getSettings, type WalletTx, type AppSettings } from "@/lib/data-store";
+import { Wallet, MessageCircle, Mail, Phone, ArrowDownLeft, ArrowUpRight, RefreshCw } from "lucide-react";
+import { listMyTransactions, getSettings, type WalletTx, type AppSettings } from "@/lib/data-store";
+import { useRealtimeWallet } from "@/hooks/use-realtime-wallet";
 
 export const Route = createFileRoute("/app/wallet")({
   component: WalletPage,
 });
 
 function WalletPage() {
-  const [balance, setBalance] = useState<number | null>(null);
+  const balance = useRealtimeWallet();
   const [txs, setTxs] = useState<WalletTx[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    Promise.all([getMyWallet(), listMyTransactions(100), getSettings()]).then(([w, t, s]) => {
-      setBalance(w.balance);
+    Promise.all([listMyTransactions(100), getSettings()]).then(([t, s]) => {
       setTxs(t);
       setSettings(s);
     });
+    const iv = setInterval(() => {
+      listMyTransactions(100).then(setTxs).catch(() => {});
+    }, 15000);
+    return () => clearInterval(iv);
   }, []);
+
+  const credited = txs.filter((t) => t.type !== "debit").reduce((a, b) => a + Number(b.amount), 0);
+  const spent = txs.filter((t) => t.type === "debit").reduce((a, b) => a + Number(b.amount), 0);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -28,15 +35,25 @@ function WalletPage() {
         <p className="text-sm text-muted-foreground">Your balance and transactions.</p>
       </div>
 
-      <div className="rounded-2xl border bg-primary text-primary-foreground p-6 shadow-md">
-        <div className="flex items-center gap-2 opacity-80 text-sm"><Wallet className="h-4 w-4" /> Current balance</div>
-        <div className="mt-2 text-4xl font-bold">₹ {balance == null ? "…" : balance.toFixed(2)}</div>
-        <button
-          onClick={() => setOpen(true)}
-          className="mt-4 cursor-pointer rounded-lg bg-white/15 hover:bg-white/25 px-4 py-2 text-sm font-medium"
-        >
-          Request top-up
-        </button>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="sm:col-span-3 relative overflow-hidden rounded-2xl [background:var(--grad-wallet)] text-white p-6 shadow-lg">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 opacity-90 text-sm"><Wallet className="h-4 w-4" /> Current balance <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" /> Live</span></div>
+              <div className="mt-2 text-4xl sm:text-5xl font-extrabold tracking-tight">₹ {balance == null ? "…" : balance.toFixed(2)}</div>
+            </div>
+            <button
+              onClick={() => setOpen(true)}
+              className="cursor-pointer rounded-lg bg-white text-emerald-800 hover:bg-white/90 px-4 py-2 text-sm font-semibold shadow"
+            >
+              Request top-up
+            </button>
+          </div>
+        </div>
+        <StatCard label="Total credited" value={`₹ ${credited.toFixed(2)}`} icon={ArrowDownLeft} tone="emerald" />
+        <StatCard label="Total spent" value={`₹ ${spent.toFixed(2)}`} icon={ArrowUpRight} tone="rose" />
+        <StatCard label="Transactions" value={String(txs.length)} icon={RefreshCw} tone="blue" />
       </div>
 
       {open && (
@@ -71,8 +88,11 @@ function WalletPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border bg-card">
-        <div className="px-5 py-4 border-b font-semibold">Transactions</div>
+      <div className="rounded-2xl border bg-card shadow-sm">
+        <div className="px-5 py-4 border-b flex items-center justify-between">
+          <div className="font-semibold">Transactions</div>
+          <span className="text-xs text-muted-foreground">{txs.length} entries</span>
+        </div>
         {txs.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground">No transactions yet.</div>
         ) : (
@@ -103,6 +123,25 @@ function WalletPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: React.ComponentType<{ className?: string }>; tone: "emerald" | "rose" | "blue" }) {
+  const tones = {
+    emerald: "bg-emerald-500/10 text-emerald-700",
+    rose: "bg-rose-500/10 text-rose-700",
+    blue: "bg-blue-500/10 text-blue-700",
+  } as const;
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
+        <div className={`grid h-9 w-9 place-items-center rounded-xl ${tones[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <div className="mt-2 text-2xl font-bold">{value}</div>
     </div>
   );
 }
