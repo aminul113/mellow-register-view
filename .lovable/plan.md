@@ -1,33 +1,34 @@
-## Fix: `has_role` referenced before it exists in `database.sql`
+# Fix SQL syntax error in database.sql
 
-### Problem
-`database.sql` creates the `profiles` table policies at the top, and those policies call `public.has_role(auth.uid(),'admin')`. But the `has_role` function is defined later in the "roles" section. Postgres runs the file top-to-bottom, so when the `profiles` policy is created the function does not exist yet → `42883: function public.has_role(uuid, unknown) does not exist`.
+## Problem
 
-### Fix (single file: `database.sql`)
-Reorder sections so roles + `has_role()` are created **before** any policy that calls it:
+The user ran `database.sql` and got:
 
-```text
-1. admin_emails            (no has_role refs — OK)
-2. app_role enum
-3. user_roles table + GRANTs + RLS enable
-4. has_role() function          ← must exist before step 5+
-5. user_roles policies
-6. profiles  (table + policies that call has_role)
-7. app_settings
-8. wallets   (policies call has_role)
-9. wallet_transactions (policies call has_role)
-10. pan_searches       (policies call has_role)
-11. handle_new_user trigger
-12. updated_at helpers
-13. RPCs (already use has_role — fine, they come last)
+```
+ERROR: 42601: syntax error at or near "@"
+LINE 20: insert into public.admin_emails(admin@panme.shop) values ('admin@example.com')
 ```
 
-No SQL logic changes — only section order. All `create policy` / `create table` statements stay identical. Idempotency (`if not exists`, `do $$ ... exception when duplicate_object`) is preserved so re-running remains safe.
+Line 20 has the column placeholder/value swapped: `admin@panme.shop` was written as the column name, and `'admin@example.com'` as the value. The correct column name is `email`.
 
-### Buyer action after fix
-Re-run the updated `database.sql` in Supabase SQL Editor. Because everything is idempotent, partial objects from the failed run won't cause errors — the reordered file will complete cleanly.
+## Change
 
-### Files touched
-- `database.sql` — reorder only (no new tables, no new policies, no behavior change)
+Edit `database.sql` line 20:
 
-No changes to app code, edge function, `SETUP.md`, or `config.ts`.
+```sql
+-- before
+insert into public.admin_emails(admin@panme.shop) values ('admin@example.com')
+  on conflict do nothing;
+
+-- after
+insert into public.admin_emails(email) values ('admin@panme.shop')
+  on conflict do nothing;
+```
+
+No other tables, policies, or app code are changed.
+
+## Verification
+
+- Re-run `database.sql` in Supabase SQL Editor; it should complete without the 42601 error.
+- After running, `public.admin_emails` should contain one row: `admin@panme.shop`.
+- The script is idempotent (`on conflict do nothing`), so re-running is safe.
