@@ -1,108 +1,124 @@
+## PAN Finder — Phase 2 (real API integration)
 
-# PAN SHOP — Dashboard, Wallet, PAN Finder, Admin Panel
-
-Goal: extend the current "bring-your-own-Supabase" app with a full user dashboard, wallet, PAN search flow, history, support and admin panel. Everything runs against the buyer's own Supabase (no Lovable Cloud), remains configurable from `config.ts`, and ships resellable.
+Goal: wire the real PanManager AI endpoint into the existing wallet + refund flow. Buyer only adds two Supabase secrets — no code edits.
 
 ---
 
-## 1. Buyer-config additions (`config.ts`)
+### 1. Buyer setup (docs only, zero code for buyer)
 
-Add two new fields alongside the existing Supabase keys:
+In their own Supabase project → **Edge Functions → Secrets**, buyer adds:
 
-```ts
-ADMIN_EMAIL: "admin@example.com",        // first admin (auto-granted on signup)
-DEFAULT_SEARCH_PRICE: 2,                 // fallback ₹ per search until admin sets it in DB
+- `PAN_API_KEY`
+- `PAN_API_SECRET`
+
+That's it. `SETUP.md` gets a new **"PAN API"** section with screenshots-style steps.
+
+No changes to `config.ts` (keys must never touch the browser bundle, per the API docs).
+
+---
+
+### 2. New Supabase Edge Function: `pan-find`
+
+File: `supabase/functions/pan-find/index.ts` (buyer deploys via Supabase CLI — one-command step added to `SETUP.md`).
+
+Responsibilities:
+- Verify the caller's JWT (`Authorization: Bearer …` from the browser) using the buyer's Supabase URL + anon key → get `user_id`. Reject if unauth.
+- Validate `aadhaar_number` is 12 digits (server-side, Zod-equivalent).
+- Read `PAN_API_KEY` / `PAN_API_SECRET` from `Deno.env`.
+- POST to `https://panmanagerai.in/service-api/v1/instant-aadhaar-to-pan/find-pan` with the two `x-api-*` headers.
+- Return a **normalized** shape to the client, stripping provider wallet fields:
+  ```json
+  { "outcome": "success" | "not_found" | "error",
+    "pan": "ABCDE1234F" | null,
+    "name": null,          // provider doesn't return name/dob in this response — will be null
+    "dob": null,
+    "tracking_id": "PMI-PF-…",
+    "message": "…" }
+  ```
+- Outcome mapping (per docs):
+  - `status===true && data.pan_number` → `success`
+  - `status===false && request_status==='rejected'` (message contains "No record") → `not_found`
+  - anything else (validation error, 5xx, network) → `error`
+- Never log the full Aadhaar; log only masked value + tracking_id.
+- Provider API keys never leave this function.
+
+---
+
+### 3. Rewrite `runPanSearch` in `src/lib/data-store.ts`
+
+Replace the stubbed block only. Flow (unchanged skeleton):
+
+1. Client validates 12-digit Aadhaar (Zod).
+2. Client calls `rpc('debit_wallet_for_search', { _aadhaar_last4 })` → gets `search_id` + `cost`. If insufficient balance, RPC throws → UI shows "Insufficient balance, top up wallet" (no API call made — money safety ✔).
+3. Client calls the edge function `supabase.functions.invoke('pan-find', { body:{ aadhaar_number } })`.
+4. Based on `outcome`, client calls `rpc('finalize_search', { _search_id, _status, _pan, _name, _dob, _raw })`.
+   - `finalize_search` (already exists) is the **single source of truth** for refunds: only refunds when status ≠ success, and is idempotent (adds `WHERE status='pending'` guard — see §4).
+5. `try/catch/finally`:
+   - If edge function throws / network fails → mark as `error` via `finalize_search` → auto-refund.
+   - If the whole browser tab dies mid-call, next call to `finalize_search` on same row is a no-op (idempotency). No double refund, no double debit. Search row stays `pending` — a small admin utility (§6) can force-refund stuck pendings.
+6. UI returns the same `PanSearchResult` shape — no changes needed in `app.pan-finder.tsx` logic.
+
+---
+
+### 4. `database.sql` — idempotency hardening (single small addition)
+
+Update `finalize_search` to guard against double-finalize:
+
+```sql
+-- inside finalize_search body, before UPDATE:
+if (select status from pan_searches where id = _search_id) <> 'pending' then
+  return;  -- already finalized, no-op
+end if;
 ```
 
-Runtime reads price from the `app_settings` table; `DEFAULT_SEARCH_PRICE` is only used before the admin sets one.
+Guarantees:
+- One debit per search (RPC is atomic).
+- One refund max per search (only fires on first non-success finalize).
+- No refund on success.
+- Retrying `finalize_search` with same id is safe (no-op).
 
-Nothing else the buyer must edit for this phase. PAN API keys will be added to `config.ts` in the next phase, once you send the API docs.
-
----
-
-## 2. Database (`database.sql`, one-paste, idempotent)
-
-New tables added on top of what's already there:
-
-- `app_settings` — singleton (`id=1`), columns: `search_price numeric`, `support_phone text`, `support_whatsapp text`, `support_email text`, `updated_at`. Admin-only write, everyone-read.
-- `wallets` — `user_id (PK, FK auth.users)`, `balance numeric default 0`, `updated_at`. Auto-created row on signup via trigger.
-- `wallet_transactions` — `id`, `user_id`, `type` ('credit' | 'debit' | 'refund'), `amount`, `note`, `ref_id` (nullable, e.g. pan_search id), `created_at`. Owner-read; admin-read all.
-- `pan_searches` — `id`, `user_id`, `aadhaar_last4` (only last 4 stored — never full Aadhaar), `status` ('success' | 'not_found' | 'error' | 'refunded'), `pan_number`, `full_name`, `dob`, `raw_response jsonb`, `cost numeric`, `created_at`. Owner-read/insert; admin-read all.
-- `user_roles` (already exists) — extend with auto-grant trigger: on new signup, if `NEW.email = current_setting('app.admin_email', true)` grant `admin` role. `app.admin_email` is set at query time from a helper RPC; simpler alternative baked in — trigger reads a row in `app_settings.admin_email` seeded from `config.ts` on first login. Chosen: **check inside `handle_new_user()` against a hardcoded lookup in a small `admin_emails` table** seeded by the buyer (one row = `ADMIN_EMAIL` value; documented in `SETUP.md`).
-
-Security-definer RPCs (server-authoritative, prevent tampering):
-
-- `debit_wallet_for_search(_aadhaar_last4 text)` → checks balance ≥ price, inserts `pan_searches` (status=pending), inserts debit txn, returns `{search_id, cost}`. All-or-nothing transaction.
-- `finalize_search(_search_id uuid, _status text, _pan text, _name text, _dob text, _raw jsonb)` → updates search row; if status ∈ ('not_found','error') inserts refund txn and re-credits wallet.
-- `admin_credit_wallet(_user_id uuid, _amount numeric, _note text)` → admin-only (checks `has_role`), credits wallet + inserts txn.
-- `admin_set_price(_price numeric)`, `admin_set_support(...)`.
-
-RLS: strict owner scoping on wallets/txns/searches; admin bypass via `has_role(auth.uid(),'admin')` in policies. GRANTs for `authenticated` + `service_role` on every new table.
+Migration is idempotent — buyer re-runs the same `database.sql`.
 
 ---
 
-## 3. Routes & UI (all under `_authenticated/` layout; existing `login`/`register` unchanged)
+### 5. UI polish on `app.pan-finder.tsx` (small, per user ask)
 
-New authenticated layout `src/routes/_authenticated/route.tsx` with a shadcn **Sidebar** (collapsible). Sidebar items:
+- Success card: show PAN prominently + **copy button** (uses `navigator.clipboard`, toast "PAN copied"). Card gets a subtle gradient border and a checkmark badge.
+- Not-found / error card: red-tinted with clear "₹X refunded to wallet" line + link to wallet.
+- Loading state: keep current spinner + disable input.
+- Insufficient balance: catch RPC error message and show a dedicated card with "Top up wallet" CTA linking to `/app/wallet`.
 
-- **Home** — `/app` — three stat cards: Total PAN searches, Rejected/not-found count, Wallet balance. Recent 5 searches table.
-- **Wallet** — `/app/wallet` — balance card, "Request top-up" button (opens modal explaining "contact admin", pre-fills a WhatsApp/email link from `app_settings.support_*`). Transaction history table.
-- **PAN Finder** — `/app/pan-finder` — hero banner card, single input (12-digit Aadhaar, numeric only, client-side Zod validation), Search button. On submit: call `panSearch` server fn → shows animated loading → result card with PAN, name, DOB or "Not found (refunded)" state. **API call is stubbed for now** — server fn is scaffolded, returns `{status:'error', message:'PAN API not configured yet'}` and refunds. Wired end-to-end so once you send docs I only edit one function.
-- **PAN List** — `/app/pan-list` — paginated table of all past searches with filters (status, date, PAN search box), CSV export button.
-- **Support** — `/app/support` — reads `app_settings`, shows phone / WhatsApp / email as tap-to-contact cards.
-- **Admin** — `/app/admin` (visible only if `has_role(admin)`) — three tabs:
-  - **Users & Wallets**: search user by email, credit wallet form (amount + note), see their balance & recent txns.
-  - **Settings**: edit search price, support phone/WhatsApp/email.
-  - **All searches**: read-only table across all users.
-
-Existing `/dashboard` becomes a redirect to `/app`.
-
-Visual style: keep current mint background + shadcn tokens; sidebar uses `bg-primary` header strip to match current dashboard header. Cards use `rounded-2xl` and the existing hover-lift animation. Framer-motion NOT added (keep bundle small).
+No layout rewrite — just refine the existing result card.
 
 ---
 
-## 4. Server functions (client-safe modules)
+### 6. Small admin helper (optional but included)
 
-All in `src/lib/*.functions.ts`, using `requireSupabaseAuth`:
-
-- `getWallet`, `listTransactions`
-- `getDashboardStats`
-- `panSearch({ aadhaar })` — validates 12-digit, calls `debit_wallet_for_search`, **TODO: call external API**, then `finalize_search`. Currently finalizes as `error` → auto-refund path is exercised so buyer sees the flow work end-to-end.
-- `listMySearches({ page, filters })`
-- `getSupportInfo`
-- Admin: `adminSearchUser(email)`, `adminCreditWallet(...)`, `adminUpdateSettings(...)`, `adminListAllSearches(...)` — each re-checks `has_role` server-side.
-
-Client bearer attach: verified the existing `functionMiddleware` in `src/start.ts` sends the Supabase token; append the generated attacher only if missing.
+Admin panel → "All searches" tab: add a "Force refund" button on rows stuck in `pending` for >10 min. Calls an admin-only RPC `admin_force_refund_search(_search_id)` that runs the same guarded refund path. Reseller-grade safety net for network partitions.
 
 ---
 
-## 5. Security posture (reseller-grade)
+### 7. Files that change
 
-- Full Aadhaar never stored (only `last4`); raw API response redacted before insert (strip full Aadhaar echo).
-- Every mutation goes through security-definer RPCs — client cannot forge balance changes even with a leaked anon key.
-- Admin check is server-side on every admin fn (not just UI hidden).
-- RLS on every table; explicit GRANTs; `authenticator` cannot read others' rows.
-- Input validation with Zod on both client and server fn `.inputValidator()`.
-- No `service_role` key in the app — buyer never pastes it into `config.ts`.
-
----
-
-## 6. Docs updates
-
-- `SETUP.md` — add: how to set `ADMIN_EMAIL`, run `database.sql`, sign up with that email → automatic admin, then use Admin → Settings to set price and support contacts.
-- `README.md` — feature list updated.
+- `supabase/functions/pan-find/index.ts` — **new**
+- `src/lib/data-store.ts` — rewrite `runPanSearch` (~40 lines)
+- `src/routes/app.pan-finder.tsx` — result-card polish + copy button + insufficient-balance branch
+- `src/routes/app.admin.tsx` — add "Force refund" action row (small)
+- `database.sql` — add pending-guard to `finalize_search` + new `admin_force_refund_search` RPC (idempotent re-run)
+- `SETUP.md` — new "PAN API setup" section: add 2 secrets + `supabase functions deploy pan-find` command
+- `config.ts` — **no change** (keys never in client)
 
 ---
 
-## 7. What ships in THIS build (Phase 1)
+### 8. Security / correctness checklist
 
-Everything above **except** the real PAN API call — that's a single ~30-line edit inside `panSearch` once you paste the API docs. The wallet-debit → API-call → finalize/refund pipeline is fully wired and testable today (every search will refund because API returns error).
+- ✅ Provider keys only in Supabase Edge Function env — never in `config.ts`, never in browser bundle.
+- ✅ Aadhaar last-4 only in DB; full Aadhaar never stored; masked in logs.
+- ✅ Balance check happens BEFORE provider call (RPC is atomic — cannot bypass).
+- ✅ Refund is server-authoritative (security-definer RPC), guarded against double-fire.
+- ✅ Success never refunds. Not-found / error always refunds exactly once.
+- ✅ Idempotent: replay of finalize_search is a no-op.
+- ✅ Edge function verifies user JWT — nobody can call it anonymously to burn buyer's provider quota.
+- ✅ Provider wallet fields (`wallet_balance`, `provider_balance`) stripped before returning to client.
 
-## Phase 2 (after you send API docs)
-
-- Replace the stubbed fetch in `panSearch` with the real provider call + response mapper.
-- Add provider API key to `config.ts` with a placeholder + `SETUP.md` section.
-
----
-
-Confirm and I'll build Phase 1 exactly as above.
+Confirm and I'll implement.
