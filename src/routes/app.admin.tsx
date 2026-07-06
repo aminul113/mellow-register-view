@@ -37,7 +37,7 @@ function AdminPage() {
   if (!ok) return null;
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl mx-auto w-full space-y-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Admin Panel</h1>
         <p className="text-sm text-muted-foreground">Manage users, settings and all searches.</p>
@@ -231,7 +231,7 @@ function SettingsTab() {
 
   if (!s) return <div className="text-sm text-muted-foreground">Loading…</div>;
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4 max-w-3xl mx-auto w-full">
       <div className="rounded-2xl border bg-card p-5 space-y-4">
         <div>
           <div className="font-semibold">Branding</div>
