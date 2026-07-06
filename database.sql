@@ -20,30 +20,7 @@ exception when duplicate_object then null; end $$;
 insert into public.admin_emails(email) values ('admin@example.com')
   on conflict do nothing;
 
--- ---------- profiles -----------------------------------------------------
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  name text,
-  email text,
-  created_at timestamptz not null default now()
-);
-grant select, insert, update on public.profiles to authenticated;
-grant all on public.profiles to service_role;
-alter table public.profiles enable row level security;
-do $$ begin
-  create policy "profiles read own or admin" on public.profiles for select
-    to authenticated using (auth.uid() = id or public.has_role(auth.uid(),'admin'));
-exception when duplicate_object then null; end $$;
-do $$ begin
-  create policy "profiles update own" on public.profiles for update
-    to authenticated using (auth.uid() = id) with check (auth.uid() = id);
-exception when duplicate_object then null; end $$;
-do $$ begin
-  create policy "profiles insert own" on public.profiles for insert
-    to authenticated with check (auth.uid() = id);
-exception when duplicate_object then null; end $$;
-
--- ---------- roles --------------------------------------------------------
+-- ---------- roles (must exist BEFORE any policy that calls has_role) ----
 do $$ begin
   create type public.app_role as enum ('admin', 'moderator', 'user');
 exception when duplicate_object then null; end $$;
@@ -66,6 +43,29 @@ $$;
 do $$ begin
   create policy "roles read own or admin" on public.user_roles for select
     to authenticated using (auth.uid() = user_id or public.has_role(auth.uid(),'admin'));
+exception when duplicate_object then null; end $$;
+
+-- ---------- profiles -----------------------------------------------------
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  name text,
+  email text,
+  created_at timestamptz not null default now()
+);
+grant select, insert, update on public.profiles to authenticated;
+grant all on public.profiles to service_role;
+alter table public.profiles enable row level security;
+do $$ begin
+  create policy "profiles read own or admin" on public.profiles for select
+    to authenticated using (auth.uid() = id or public.has_role(auth.uid(),'admin'));
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "profiles update own" on public.profiles for update
+    to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "profiles insert own" on public.profiles for insert
+    to authenticated with check (auth.uid() = id);
 exception when duplicate_object then null; end $$;
 
 -- ---------- app settings (singleton row id=1) ----------------------------
