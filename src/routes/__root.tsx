@@ -83,6 +83,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Lost your PAN card? Trace and retrieve it securely in seconds with PANME SHOP." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "PANME SHOP — Find your PAN card instantly" },
+      { name: "twitter:description", content: "Lost your PAN card? Trace and retrieve it securely in seconds with PANME SHOP." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c9a2f60f-09ce-43a0-b8fc-225d6acf7210/id-preview-ebaa16c1--db751279-bfb6-4a66-97cd-f10f2a068a6d.lovable.app-1783318950813.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c9a2f60f-09ce-43a0-b8fc-225d6acf7210/id-preview-ebaa16c1--db751279-bfb6-4a66-97cd-f10f2a068a6d.lovable.app-1783318950813.png" },
     ],
     links: [
       {
