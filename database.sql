@@ -17,7 +17,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- >>>>> EDIT THIS EMAIL (must match config.ts ADMIN_EMAIL) <<<<<
-insert into public.admin_emails(email) values ('admin@panme.shop')
+insert into public.admin_emails(email) values ('admin@example.com')
   on conflict do nothing;
 
 
