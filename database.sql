@@ -343,8 +343,7 @@ select u.id,
        coalesce(u.raw_user_meta_data->>'name', split_part(u.email,'@',1)),
        u.email
 from auth.users u
-on conflict (id) do update set email = excluded.email
-where public.profiles.email is distinct from excluded.email;
+on conflict (id) do update set email = excluded.email;
 
 insert into public.wallets(user_id)
 select id from auth.users
