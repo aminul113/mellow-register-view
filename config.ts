@@ -23,7 +23,7 @@ export const APP_CONFIG = {
   // 3) First admin email. The user who signs up with THIS email will be
   //    automatically granted the "admin" role. Change this before running
   //    database.sql on a fresh project.
-  ADMIN_EMAIL: "admin@example.com",
+  ADMIN_EMAIL: "admin@panme.shop",
 
   // 4) Default price (in ₹) charged per PAN search until the admin sets a
   //    price from the Admin panel. Only used as a fallback.
