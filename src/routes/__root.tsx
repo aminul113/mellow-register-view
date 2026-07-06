@@ -11,6 +11,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { isConfigured } from "../lib/supabase-config";
+import { NotConfiguredScreen } from "../components/NotConfiguredScreen";
 
 function NotFoundComponent() {
   return (
@@ -125,7 +127,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      {isConfigured() ? <Outlet /> : <NotConfiguredScreen />}
     </QueryClientProvider>
   );
 }

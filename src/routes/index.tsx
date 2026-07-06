@@ -1,15 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { getSupabaseConfig } from "@/lib/supabase-config";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  component: IndexRedirect,
+  beforeLoad: () => {
+    throw redirect({ to: "/register" });
+  },
 });
-
-function IndexRedirect() {
-  const navigate = useNavigate();
-  useEffect(() => {
-    navigate({ to: getSupabaseConfig() ? "/register" : "/setup", replace: true });
-  }, [navigate]);
-  return null;
-}
