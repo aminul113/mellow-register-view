@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import illustration from "@/assets/pan-illustration.jpg.asset.json";
+import { useBranding } from "@/lib/branding";
 
 export function AuthLayout({ children }: { children: ReactNode }) {
+  const brand = useBranding();
   return (
     <div className="h-screen w-full overflow-hidden bg-background flex flex-col lg:grid lg:grid-cols-2">
       {/* Left panel */}
@@ -28,8 +30,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="relative w-full max-w-[300px] lg:max-w-xl aspect-[4/3] rounded-[2rem] overflow-hidden shadow-xl ring-1 ring-border/10 bg-white transition-transform duration-500 hover:scale-[1.01] animate-scale-in">
           <img
-            src={illustration.url}
-            alt="PANME SHOP PAN card application"
+            src={brand.logoUrl || illustration.url}
+            alt={`${brand.name} illustration`}
             className="w-full h-full object-cover"
           />
         </div>
