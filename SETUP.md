@@ -32,6 +32,26 @@ Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common
    - `VITE_ADMIN_EMAIL`
 4. **Deploy**. 2 min me live URL mil jayega.
 
+> ⚠️ **Admin Panel dikhne ke liye** (Vercel/Netlify/Cloudflare — sab ke liye same):
+> Env var `VITE_ADMIN_EMAIL` sirf frontend fallback hai. Real admin role
+> Supabase DB me `admin_emails` table + `user_roles` se decide hoti hai.
+> Deploy ke baad Supabase → SQL Editor me ye chalao (email apna daalo):
+>
+> ```sql
+> insert into public.admin_emails(email) values ('YOUR-EMAIL@example.com')
+>   on conflict do nothing;
+> insert into public.user_roles(user_id, role)
+> select u.id, 'admin'::public.app_role
+> from auth.users u
+> where lower(u.email) = lower('YOUR-EMAIL@example.com')
+> on conflict (user_id, role) do nothing;
+> ```
+>
+> Ya seedhe pura `database.sql` dobara run kar do — file ke end me ek
+> self-heal block hai jo automatically har `admin_emails` wale user ko admin
+> role de deta hai. Fir app me **logout → login** karo, sidebar me
+> "Admin Panel" aa jayega.
+
 ### C. Netlify (1-click)
 
 1. README ka **Deploy to Netlify** button click.
