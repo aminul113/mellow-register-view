@@ -33,7 +33,12 @@ function AdminPage() {
     });
   }, [navigate]);
 
-  if (ok === null) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (ok === null) return (
+    <div className="max-w-6xl mx-auto w-full space-y-4">
+      <div className="h-24 rounded-2xl bg-primary/10 animate-pulse" />
+      <div className="h-64 rounded-2xl bg-primary/10 animate-pulse" />
+    </div>
+  );
   if (!ok) return null;
 
   return (

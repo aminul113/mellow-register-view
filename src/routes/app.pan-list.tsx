@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, Search, ListChecks, CheckCircle2, XCircle } from "lucide-react";
 import { listMySearches, type PanSearch } from "@/lib/data-store";
 import { StatusPill } from "./app.index";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/app/pan-list")({
   component: PanListPage,
@@ -10,10 +11,11 @@ export const Route = createFileRoute("/app/pan-list")({
 
 function PanListPage() {
   const [rows, setRows] = useState<PanSearch[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
 
-  useEffect(() => { listMySearches(500).then(setRows); }, []);
+  useEffect(() => { listMySearches(500).then((r) => { setRows(r); setLoaded(true); }); }, []);
 
   const total = rows.length;
   const successCount = rows.filter((r) => r.status === "success").length;
@@ -102,7 +104,13 @@ function PanListPage() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No results.</td></tr>
+              !loaded ? (
+                [0,1,2,3,4].map((i) => (
+                  <tr key={i} className="border-t"><td colSpan={7} className="px-5 py-3"><Skeleton className="h-5 w-full" /></td></tr>
+                ))
+              ) : (
+                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No results.</td></tr>
+              )
             ) : filtered.map((r) => (
               <tr key={r.id} className="border-t">
                 <td className="px-5 py-2.5 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>

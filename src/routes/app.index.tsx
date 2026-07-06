@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Wallet, CheckCircle2, XCircle, ArrowRight, Search } from "lucide-react";
 import { getDashboardStats, type PanSearch } from "@/lib/data-store";
 import { useRealtimeWallet } from "@/hooks/use-realtime-wallet";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/app/")({
   component: HomePage,
@@ -21,7 +22,7 @@ function HomePage() {
   }, []);
 
   if (err) return <div className="text-destructive text-sm">{err}</div>;
-  if (!stats) return <div className="text-muted-foreground text-sm">Loading…</div>;
+  if (!stats) return <DashboardSkeleton />;
 
   const success = stats.total - stats.rejected;
   const shownBalance = liveBalance ?? stats.balance;
@@ -114,5 +115,30 @@ export function StatusPill({ status }: { status: PanSearch["status"] }) {
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${map[status] ?? "bg-muted"}`}>
       {status}
     </span>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto w-full">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-10 w-40 rounded-lg" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-32 rounded-2xl" />
+        ))}
+      </div>
+      <div className="rounded-2xl border bg-card p-5 space-y-3">
+        <Skeleton className="h-5 w-40" />
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-8 w-full" />
+        ))}
+      </div>
+    </div>
   );
 }

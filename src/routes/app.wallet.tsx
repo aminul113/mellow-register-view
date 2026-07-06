@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Wallet, MessageCircle, Mail, Phone, ArrowDownLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 import { listMyTransactions, getSettings, type WalletTx, type AppSettings } from "@/lib/data-store";
 import { useRealtimeWallet } from "@/hooks/use-realtime-wallet";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/app/wallet")({
   component: WalletPage,
@@ -27,6 +28,7 @@ function WalletPage() {
 
   const credited = txs.filter((t) => t.type !== "debit").reduce((a, b) => a + Number(b.amount), 0);
   const spent = txs.filter((t) => t.type === "debit").reduce((a, b) => a + Number(b.amount), 0);
+  const loadingList = settings === null;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto w-full">
@@ -94,7 +96,13 @@ function WalletPage() {
           <span className="text-xs text-muted-foreground">{txs.length} entries</span>
         </div>
         {txs.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">No transactions yet.</div>
+          loadingList ? (
+            <div className="p-5 space-y-3">
+              {[0,1,2,3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+            </div>
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">No transactions yet.</div>
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
