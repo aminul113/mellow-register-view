@@ -14,7 +14,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -36,24 +35,30 @@ export function AppSidebar({ isAdmin, onLogout }: { isAdmin: boolean; onLogout: 
   const isActive = (p: string) => (p === "/app" ? currentPath === "/app" : currentPath.startsWith(p));
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5 font-bold tracking-wide text-primary">
-          <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-          PANME SHOP
+    <Sidebar collapsible="icon" className="border-r-0">
+      <SidebarHeader className="border-b border-sidebar-border/40">
+        <div className="flex items-center gap-2 px-2 py-3 font-bold tracking-wide text-sidebar-foreground">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <span className="truncate group-data-[collapsible=icon]:hidden">PANME SHOP</span>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-1.5 py-3">
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1.5">
               {items.map((it) => (
                 <SidebarMenuItem key={it.url}>
-                  <SidebarMenuButton asChild isActive={isActive(it.url)}>
-                    <Link to={it.url} className="flex items-center gap-2">
-                      <it.icon className="h-4 w-4" />
-                      <span>{it.title}</span>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(it.url)}
+                    tooltip={it.title}
+                    className="h-10 rounded-lg text-sidebar-foreground/80 transition-all duration-200 hover:translate-x-0.5 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-md data-[active=true]:font-semibold"
+                  >
+                    <Link to={it.url} className="flex items-center gap-3">
+                      <it.icon className="h-[18px] w-[18px] shrink-0" />
+                      <span className="truncate">{it.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -64,14 +69,18 @@ export function AppSidebar({ isAdmin, onLogout }: { isAdmin: boolean; onLogout: 
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-1.5">
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isActive("/app/admin")}>
-                    <Link to="/app/admin" className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4" />
-                      <span>Admin Panel</span>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/app/admin")}
+                    tooltip="Admin Panel"
+                    className="h-10 rounded-lg text-sidebar-foreground/80 transition-all duration-200 hover:translate-x-0.5 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-md data-[active=true]:font-semibold"
+                  >
+                    <Link to="/app/admin" className="flex items-center gap-3">
+                      <ShieldCheck className="h-[18px] w-[18px] shrink-0" />
+                      <span className="truncate">Admin Panel</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -80,12 +89,16 @@ export function AppSidebar({ isAdmin, onLogout }: { isAdmin: boolean; onLogout: 
           </SidebarGroup>
         )}
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border/40 px-1.5 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={onLogout} className="text-destructive">
-              <LogOut className="h-4 w-4" />
-              <span>Log out</span>
+            <SidebarMenuButton
+              onClick={onLogout}
+              tooltip="Log out"
+              className="h-10 rounded-lg text-sidebar-foreground/80 transition-all duration-200 hover:bg-red-500/90 hover:text-white"
+            >
+              <LogOut className="h-[18px] w-[18px] shrink-0" />
+              <span className="truncate">Log out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

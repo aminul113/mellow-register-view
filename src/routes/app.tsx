@@ -49,16 +49,18 @@ function AppLayout() {
           }}
         />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 border-b bg-card flex items-center justify-between px-4 sticky top-0 z-10">
-            <div className="flex items-center gap-2">
+          <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center justify-between gap-3 px-3 sm:px-5 sticky top-0 z-10">
+            <div className="flex items-center gap-2 min-w-0">
               <SidebarTrigger />
-              <div className="text-sm text-muted-foreground">Welcome, <span className="text-foreground font-medium">{name}</span></div>
+              <div className="text-sm text-muted-foreground truncate">
+                Welcome, <span className="text-foreground font-semibold">{name}</span>
+              </div>
             </div>
             {isAdmin && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">Admin</span>
+              <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Admin</span>
             )}
           </header>
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+          <main className="flex-1 p-4 sm:p-5 md:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>
