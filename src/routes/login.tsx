@@ -54,10 +54,10 @@ function LoginPage() {
 
   return (
     <AuthLayout>
-      <h2 className="text-2xl font-bold text-foreground">Login to your account</h2>
+      <h2 className="text-xl lg:text-2xl font-bold text-foreground">Login to your account</h2>
       <p className="mt-1 text-sm text-muted-foreground">Welcome back — enter your details.</p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-5">
+      <form onSubmit={onSubmit} className="mt-6 lg:mt-8 space-y-4 lg:space-y-5">
         <AuthField
           label="Email"
           type="email"
@@ -86,7 +86,7 @@ function LoginPage() {
         <AuthButton type="submit" loading={loading}>Login</AuthButton>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-5 lg:mt-6 text-center text-sm text-muted-foreground">
         New here?{" "}
         <Link to="/register" className="font-semibold text-primary hover:underline underline-offset-4">
           Create an account
