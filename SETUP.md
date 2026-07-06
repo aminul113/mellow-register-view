@@ -26,14 +26,18 @@ Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common
 
 1. README ka **Deploy to Vercel** button click.
 2. Repo import ka option → apne fork ka URL do.
-3. Env vars maango to sirf ye 3 daalo:
+3. Env vars maango to ye 5 daalo:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_ADMIN_EMAIL`
+   - `PAN_API_KEY`   ← ⚠️ **NO `VITE_` prefix** (server-side only)
+   - `PAN_API_SECRET` ← ⚠️ **NO `VITE_` prefix** (server-side only)
 4. **Deploy**. 2 min me live URL mil jayega.
 
-> `PAN_API_KEY` / `PAN_API_SECRET` Vercel env vars me mat daalo. Wo sirf
-> Supabase → Edge Functions → Secrets me jayenge (Step 6.5).
+> ⚠️ **Warning:** `PAN_API_KEY` / `PAN_API_SECRET` par KABHI `VITE_` prefix mat
+> lagao. `VITE_` prefix wali env vars browser bundle me chali jaati hain aur
+> koi bhi DevTools → Sources me dekh ke key nikaal sakta hai. Aapke PanManager
+> account ka credit misuse ho jayega.
 
 > ⚠️ **Admin Panel dikhne ke liye** (Vercel/Netlify/Cloudflare — sab ke liye same):
 > Env var `VITE_ADMIN_EMAIL` sirf frontend fallback hai. Real admin role
@@ -59,7 +63,9 @@ Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common
 
 1. README ka **Deploy to Netlify** button click.
 2. GitHub authorize → repo pick.
-3. Site settings → **Environment variables** me wahi 3 env vars daalo.
+3. Site settings → **Environment variables** me wahi 5 env vars daalo
+   (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_ADMIN_EMAIL`,
+   `PAN_API_KEY`, `PAN_API_SECRET` — last 2 **without `VITE_` prefix**).
 4. **Trigger deploy → Clear cache & deploy site**. `netlify.toml` build + SPA redirect already handle karta hai.
 
 ### D. Hostinger / cPanel / shared hosting
@@ -74,7 +80,7 @@ Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common
 4. `public/.htaccess` build ke saath copy ho jata hai — SPA deep-links (jaise `/app/wallet` refresh) chalte hain.
 5. Domain pe khol ke test karo.
 
-> **Cloudflare Pages:** Connect repo → Framework preset **None** → Build cmd `bun run build` → Output dir `dist` → Env vars daalo (same 3).
+> **Cloudflare Pages:** Connect repo → Framework preset **None** → Build cmd `bun run build` → Output dir `dist` → Env vars daalo (same 5, `PAN_API_KEY` / `PAN_API_SECRET` **without** `VITE_` prefix).
 
 ---
 
@@ -202,55 +208,56 @@ Browser me `http://localhost:8080` refresh karo. Ab register/login screen kholeg
 
 ---
 
-## Step 6.5 — PAN Finder API setup (2 minutes)
+## Step 6.5 — PAN Finder API setup (1 minute)
 
-PAN Finder feature ke liye ek Supabase **Edge Function** deploy karni hai. Ye function aapke provider API keys ko secure server-side rakhti hai — browser me kabhi expose nahi hoti.
+PAN provider keys aapke hosting platform ki **Environment Variables** me
+jaati hain. App ka built-in server route `/api/pan-find` (source me:
+`src/routes/api/pan-find.ts`) inko server-side padhta hai — browser bundle
+me kabhi nahi jaati. Koi Supabase Edge Function deploy karne ki zarurat nahi.
 
-> Source code sell karne ke liye safe rule: buyer ki PAN provider keys kabhi
-> GitHub repo, `config.ts`, `.env`, Vercel, Netlify, ya Cloudflare env vars me
-> nahi jayengi. Har buyer apne Supabase project ke Edge Function Secrets me
-> khud ki `PAN_API_KEY` / `PAN_API_SECRET` add karega.
+> Source code sell safe rule: buyer ki PAN provider keys KABHI GitHub repo,
+> `config.ts`, ya `VITE_` prefix wali env var me nahi jayengi. Har buyer
+> apne hosting dashboard me `PAN_API_KEY` + `PAN_API_SECRET` add karega.
 
-### 6.5a — Provider keys add karo (secure, secret)
+### 6.5a — Provider keys add karo (hosting env vars me)
 
-1. Supabase dashboard → left sidebar → **Edge Functions**
-2. Upar right corner → **Manage secrets** (ya `Settings → Edge Functions → Secrets`)
-3. **Add new secret** click karke ye do secrets add karo:
+Aap jis platform pe deploy kar rahe ho:
+
+**Vercel:**
+1. Project → **Settings** → **Environment Variables**
+2. Add karo (Production + Preview + Development, teenon scopes):
 
 | Name | Value |
 |------|-------|
-| `PAN_API_KEY` | Aapki PanManager AI se mili `x-api-key` |
-| `PAN_API_SECRET` | Aapki PanManager AI se mili `x-api-secret` |
+| `PAN_API_KEY` | PanManager AI ki `x-api-key` |
+| `PAN_API_SECRET` | PanManager AI ki `x-api-secret` |
 
-> Ye values sirf server par rehti hain. Kabhi bhi `config.ts`, `.env`, Vercel
-> env vars, Netlify env vars, Cloudflare env vars, ya code me mat paste karna.
-> Secret names exact same hone chahiye: `PAN_API_KEY` and `PAN_API_SECRET`.
+3. **Save** → **Deployments** → latest deployment ke ⋯ menu → **Redeploy**.
 
-### 6.5b — Edge function deploy karo
+**Netlify:**
+1. Site → **Site settings** → **Environment variables** → **Add a variable**
+2. Same 2 keys add karo (scope: All)
+3. **Deploys** → **Trigger deploy → Clear cache and deploy site**
 
-Ek baar Supabase CLI install karo (agar nahi hai):
+**Cloudflare Pages:**
+1. Project → **Settings** → **Environment variables** → **Add variable**
+2. Same 2 keys add karo (Production + Preview)
+3. **Deployments** → **Retry deployment**
 
-```bash
-npm install -g supabase
-```
+**Local dev:**
+1. Project root me `.env` file banao (already gitignored)
+2. Paste karo:
+   ```
+   PAN_API_KEY=your-pan-api-key
+   PAN_API_SECRET=your-pan-api-secret
+   ```
+3. `bun run dev` restart karo
 
-Ab project folder me:
+> ⚠️ **KABHI `VITE_` prefix mat lagao.** `VITE_PAN_API_KEY` naam se add karoge
+> to key browser JS bundle me build ho jayegi aur DevTools → Sources me kisi
+> ko bhi dikhegi — matlab aapki PanManager credits chori.
 
-```bash
-supabase login
-supabase link --project-ref <YOUR-PROJECT-REF>
-supabase functions deploy pan-find
-```
-
-`<YOUR-PROJECT-REF>` = aapke Supabase project URL ka pehla part (jaise `abcdxyz12345` from `https://abcdxyz12345.supabase.co`).
-
-Deploy successful hone par terminal me green message aayega: `Deployed Function pan-find`.
-
-> Agar secrets add karne ke baad bhi error aaye, `supabase functions deploy pan-find`
-> dobara chalao. Function aur secrets dono **same Supabase project** me hone chahiye
-> jiska URL/key `config.ts` ya hosting env vars me laga hai.
-
-### 6.5b-verify — Safe check (secret value show nahi hoti)
+### 6.5b — Safe check (secret value show nahi hoti)
 
 App me admin login → **Admin Panel → Settings → PAN API setup check** →
 **Check PAN setup** dabao.
@@ -259,11 +266,11 @@ Status ka matlab:
 
 | Status | Matlab | Fix |
 |--------|--------|-----|
-| `ready` | Function deployed + secrets present | PAN search test karo |
-| `missing secrets` | Function hai, par keys missing/wrong name | Edge Function Secrets me exact names add karo |
-| `function missing` | `pan-find` deploy nahi hua | `supabase functions deploy pan-find` chalao |
+| `ready` | Server route deployed + secrets present | PAN search test karo |
+| `missing secrets` | Route hai, par keys missing/wrong name | Hosting env vars me `PAN_API_KEY` + `PAN_API_SECRET` add karo (bina `VITE_`), redeploy |
+| `function missing` | `/api/pan-find` route not found | App ko redeploy karo hosting par |
 | `unauthorized` | Login/session issue | Logout → login, phir test |
-| `error` | Network/provider/config issue | Function logs dekho + same project verify karo |
+| `error` | Network/provider/config issue | Hosting logs dekho + env vars verify karo |
 
 ### 6.5c — Test karo
 
@@ -276,8 +283,9 @@ Status ka matlab:
 ### Kaise kaam karta hai (security summary)
 
 - Aap **12-digit Aadhaar** enter karte ho
-- Pehle server par wallet debit hota hai (RPC: `debit_wallet_for_search`) — balance kam hua to API call hi nahi hoti, error dikhta hai
-- Fir edge function `pan-find` provider ko call karti hai (keys server par)
+- Pehle Supabase par wallet debit hota hai (RPC: `debit_wallet_for_search`) — balance kam hua to API call hi nahi hoti, error dikhta hai
+- Fir browser POST karta hai `/api/pan-find` par (aapke hosting server pe chalta hai)
+- Server route Supabase JWT verify karta hai → PanManager ko call karta hai (keys sirf server par)
 - Success → PAN card dikhta hai, no refund
 - Fail / not found → server-side atomic refund (RPC: `finalize_search`)
 - **Double refund impossible** — RPC pending guard hai, retry safe
@@ -335,7 +343,7 @@ Ye `dist/` folder banayega. Isko in me se kahin bhi deploy kar sakte ho:
 |------|---------------|-----------------|
 | `config.ts` | Supabase URL + key | **Yes** — Step 4 |
 | `database.sql` | Tables + RLS + triggers | **Copy-paste** — Step 5 |
-| `supabase/functions/pan-find/` | PAN provider edge function | **Deploy once** — Step 6.5 |
+| `src/routes/api/pan-find.ts` | PAN provider server route (host-side) | No — auto-deployed with the app |
 | `SETUP.md` | Ye guide | No |
 | `src/**` | App source code | No |
 

@@ -12,8 +12,10 @@
 // pasted here are used (works for Codespaces / Hostinger static builds).
 //
 // IMPORTANT for source-code selling: never paste PAN_API_KEY or PAN_API_SECRET
-// in this file. PAN provider keys belong only in Supabase → Edge Functions →
-// Secrets for each buyer's own project.
+// in this file, and never prefix them with VITE_ anywhere. Those keys belong
+// ONLY in the hosting platform's Environment Variables (Vercel / Netlify /
+// Cloudflare Pages) as plain `PAN_API_KEY` and `PAN_API_SECRET` — server-side
+// only. A VITE_ prefix would leak them into the browser bundle.
 const ENV = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
 
 export const APP_CONFIG = {
