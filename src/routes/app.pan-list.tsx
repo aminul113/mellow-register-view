@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Search, ListChecks, CheckCircle2, XCircle } from "lucide-react";
 import { listMySearches, type PanSearch } from "@/lib/data-store";
 import { StatusPill } from "./app.index";
 
@@ -14,6 +14,10 @@ function PanListPage() {
   const [status, setStatus] = useState<string>("all");
 
   useEffect(() => { listMySearches(500).then(setRows); }, []);
+
+  const total = rows.length;
+  const successCount = rows.filter((r) => r.status === "success").length;
+  const failedCount = rows.filter((r) => r.status !== "success").length;
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -55,17 +59,26 @@ function PanListPage() {
           <h1 className="text-2xl md:text-3xl font-bold">PAN List</h1>
           <p className="text-sm text-muted-foreground">All your past PAN searches.</p>
         </div>
-        <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm hover:bg-muted/40">
+        <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-muted/40">
           <Download className="h-4 w-4" /> Export CSV
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <input placeholder="Search PAN, name or last 4"
-          value={q} onChange={(e) => setQ(e.target.value)}
-          className="rounded-lg border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 min-w-[240px]" />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <MiniStat label="Total searches" value={total} icon={ListChecks} tone="bg-primary/10 text-primary" />
+        <MiniStat label="Success" value={successCount} icon={CheckCircle2} tone="bg-emerald-500/10 text-emerald-700" />
+        <MiniStat label="Failed / refunded" value={failedCount} icon={XCircle} tone="bg-rose-500/10 text-rose-700" />
+      </div>
+
+      <div className="rounded-2xl border bg-card p-4 flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input placeholder="Search PAN, name or last 4"
+            value={q} onChange={(e) => setQ(e.target.value)}
+            className="w-full rounded-lg border bg-background pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+        </div>
         <select value={status} onChange={(e) => setStatus(e.target.value)}
-          className="rounded-lg border bg-card px-3 py-2 text-sm">
+          className="rounded-lg border bg-background px-3 py-2 text-sm">
           <option value="all">All statuses</option>
           <option value="success">Success</option>
           <option value="not_found">Not found</option>
@@ -74,7 +87,7 @@ function PanListPage() {
         </select>
       </div>
 
-      <div className="rounded-2xl border bg-card overflow-x-auto">
+      <div className="rounded-2xl border bg-card overflow-x-auto shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -104,6 +117,20 @@ function PanListPage() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: React.ComponentType<{ className?: string }>; tone: string }) {
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
+        <div className={`grid h-9 w-9 place-items-center rounded-xl ${tone}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <div className="mt-2 text-2xl font-bold">{value}</div>
     </div>
   );
 }

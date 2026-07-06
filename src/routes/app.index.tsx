@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Wallet, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import { Wallet, CheckCircle2, XCircle, ArrowRight, Search } from "lucide-react";
 import { getDashboardStats, type PanSearch } from "@/lib/data-store";
+import { useRealtimeWallet } from "@/hooks/use-realtime-wallet";
 
 export const Route = createFileRoute("/app/")({
   component: HomePage,
@@ -10,26 +11,36 @@ export const Route = createFileRoute("/app/")({
 function HomePage() {
   const [stats, setStats] = useState<{ balance: number; total: number; rejected: number; recent: PanSearch[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const liveBalance = useRealtimeWallet();
 
   useEffect(() => {
-    getDashboardStats().then(setStats).catch((e) => setErr(e.message));
+    const load = () => getDashboardStats().then(setStats).catch((e) => setErr(e.message));
+    load();
+    const iv = setInterval(load, 20000);
+    return () => clearInterval(iv);
   }, []);
 
   if (err) return <div className="text-destructive text-sm">{err}</div>;
   if (!stats) return <div className="text-muted-foreground text-sm">Loading…</div>;
 
   const success = stats.total - stats.rejected;
+  const shownBalance = liveBalance ?? stats.balance;
   const cards = [
     { label: "Total Success PAN", value: success, icon: CheckCircle2, style: "[background:var(--grad-success)]" },
     { label: "Rejected PAN", value: stats.rejected, icon: XCircle, style: "[background:var(--grad-danger)]" },
-    { label: "Wallet Balance", value: `₹ ${stats.balance.toFixed(2)}`, icon: Wallet, style: "[background:var(--grad-wallet)]" },
+    { label: "Wallet Balance", value: `₹ ${shownBalance.toFixed(2)}`, icon: Wallet, style: "[background:var(--grad-wallet)]" },
   ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Overview of your PAN searches and wallet.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Overview of your PAN searches and wallet.</p>
+        </div>
+        <Link to="/app/pan-finder" className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold shadow hover:bg-primary/90">
+          <Search className="h-4 w-4" /> New PAN search
+        </Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

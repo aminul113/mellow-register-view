@@ -79,7 +79,12 @@ function UsersTab() {
     finally { setSearching(false); }
   }
 
-  useEffect(() => { loadUsers(""); }, []);
+  useEffect(() => {
+    loadUsers("");
+    const iv = setInterval(() => { loadUsers(email); }, 10000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
 
   async function find() {
     setFound(null);
