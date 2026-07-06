@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Wallet, MessageCircle, Mail, Phone, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Loader2 } from "lucide-react";
-import { listMyTransactions, getSettings, createPaymentOrder, type WalletTx, type AppSettings } from "@/lib/data-store";
+import { Wallet, MessageCircle, Mail, Phone, ArrowDownLeft, ArrowUpRight, RefreshCw, Plus } from "lucide-react";
+import { listMyTransactions, getSettings, type WalletTx, type AppSettings } from "@/lib/data-store";
 import { APP_CONFIG } from "../../config";
 import { useRealtimeWallet } from "@/hooks/use-realtime-wallet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { swalError } from "@/lib/swal";
+import { AddMoneyDialog } from "@/components/wallet/AddMoneyDialog";
 
 export const Route = createFileRoute("/app/wallet")({
   component: WalletPage,
@@ -15,27 +15,9 @@ function WalletPage() {
   const balance = useRealtimeWallet();
   const [txs, setTxs] = useState<WalletTx[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState<string>("");
-  const [paying, setPaying] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const paymentEnabled = APP_CONFIG.PAYMENT.ENABLED;
-  const { MIN_AMOUNT, MAX_AMOUNT, QUICK_AMOUNTS } = APP_CONFIG.PAYMENT;
-
-  async function startPayment() {
-    const n = Number(amount);
-    if (!Number.isFinite(n) || n < MIN_AMOUNT || n > MAX_AMOUNT) {
-      swalError("Invalid amount", `Enter an amount between ₹${MIN_AMOUNT} and ₹${MAX_AMOUNT}`);
-      return;
-    }
-    setPaying(true);
-    try {
-      const r = await createPaymentOrder(n);
-      window.location.href = r.payment_url;
-    } catch (e) {
-      setPaying(false);
-      swalError("Payment failed", e instanceof Error ? e.message : "Could not start payment");
-    }
-  }
 
   useEffect(() => {
     Promise.all([listMyTransactions(100), getSettings()]).then(([t, s]) => {
@@ -67,12 +49,22 @@ function WalletPage() {
               <div className="flex items-center gap-2 opacity-90 text-sm"><Wallet className="h-4 w-4" /> Current balance <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" /> Live</span></div>
               <div className="mt-2 text-4xl sm:text-5xl font-extrabold tracking-tight">₹ {balance == null ? "…" : balance.toFixed(2)}</div>
             </div>
-            <button
-              onClick={() => setOpen(true)}
-              className="cursor-pointer rounded-lg bg-white text-emerald-800 hover:bg-white/90 px-4 py-2 text-sm font-semibold shadow"
-            >
-              Contact admin
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {paymentEnabled && (
+                <button
+                  onClick={() => setAddOpen(true)}
+                  className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-white text-emerald-800 hover:bg-white/90 px-5 py-2.5 text-sm font-bold shadow-lg"
+                >
+                  <Plus className="h-4 w-4" /> Add Money
+                </button>
+              )}
+              <button
+                onClick={() => setContactOpen(true)}
+                className="cursor-pointer rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 px-4 py-2 text-xs font-semibold"
+              >
+                Contact admin
+              </button>
+            </div>
           </div>
         </div>
         <StatCard label="Total credited" value={`₹ ${credited.toFixed(2)}`} icon={ArrowDownLeft} tone="emerald" />
@@ -80,61 +72,10 @@ function WalletPage() {
         <StatCard label="Transactions" value={String(txs.length)} icon={RefreshCw} tone="blue" />
       </div>
 
-      {paymentEnabled && (
-        <div className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary">
-              <CreditCard className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-semibold">Add money to wallet</div>
-              <div className="text-xs text-muted-foreground">Instant top-up via UPI / Cards / Netbanking.</div>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {QUICK_AMOUNTS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setAmount(String(v))}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${
-                  Number(amount) === v ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/40"
-                }`}
-              >
-                ₹{v}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">₹</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={MIN_AMOUNT}
-                max={MAX_AMOUNT}
-                placeholder={`Enter amount (min ${MIN_AMOUNT}, max ${MAX_AMOUNT})`}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border bg-background pl-8 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <button
-              type="button"
-              disabled={paying || !amount}
-              onClick={startPayment}
-              className="cursor-pointer inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold shadow hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              {paying ? "Redirecting…" : "Pay Now"}
-            </button>
-          </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">You'll be redirected to a secure gateway. Wallet is credited automatically after payment.</p>
-        </div>
-      )}
+      <AddMoneyDialog open={addOpen} onOpenChange={setAddOpen} balance={balance} />
 
-      {open && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+      {contactOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setContactOpen(false)}>
           <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold">Request wallet top-up</h3>
             <p className="mt-1 text-sm text-muted-foreground">Contact the admin. They will credit your wallet after payment.</p>
@@ -160,7 +101,7 @@ function WalletPage() {
                 <div className="text-sm text-muted-foreground">Support contact is not set yet. Ask the admin to configure it.</div>
               )}
             </div>
-            <button onClick={() => setOpen(false)} className="mt-5 w-full rounded-lg border px-4 py-2 text-sm hover:bg-muted/40">Close</button>
+            <button onClick={() => setContactOpen(false)} className="mt-5 w-full rounded-lg border px-4 py-2 text-sm hover:bg-muted/40">Close</button>
           </div>
         </div>
       )}
