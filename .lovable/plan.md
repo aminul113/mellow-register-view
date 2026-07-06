@@ -1,111 +1,143 @@
+## Vercel Setup — Click-by-Click Guide
 
-## Goal
-
-User apni marzi ka amount daale → payment gateway pe jaaye → success hone par wallet auto-credit ho. **Source code sell karne** ke liye buyer sirf 3 env vars daalke apna gateway plug kar sake — koi code change nahi.
-
-Provider docs (rapidxservices) login ke peeche hain, isliye plan **RapidX-style form-encoded UPI PSPs** ke typical shape par based hai (user_token / customer_mobile / amount / order_id / redirect_url → response me `result.payment_url` aur status API me `txnStatus` SUCCESS/PENDING/FAILURE). Ek jagah (config) me field names / response paths tweak karne se koi bhi similar Indian PSP fit ho jaayega.
+Ye tera **buyer** (ya tu khud) Vercel dashboard pe kya kya karega — step by step.
 
 ---
 
-## Kya banega (user ke liye)
+### PART 1: Project Deploy karna (agar pehli baar hai)
 
-1. **Wallet page pe "Add Money" section**
-   - Amount input (min ₹10, max ₹50,000 — admin settings me configurable)
-   - Quick chips: ₹100 / ₹500 / ₹1000 / ₹2000
-   - "Pay Now" button → gateway ke hosted checkout par redirect
-2. **Redirect flow**
-   - Success/failure ke baad user `/app/wallet/payment-return?order_id=...` par wapas aata hai
-   - Wahan hum server se status verify karke result dikhate hain (Success → wallet credited, Pending → "verification pending", Failed → refund/nothing)
-3. **Server-side polling safety net**
-   - Agar user return na kare (browser band kar de) to admin panel me "Verify pending payments" button — pending orders ki status API call karke settle karta hai
-4. **Admin Panel → Settings → "Payment Gateway" section**
-   - Min/max amount, enable/disable toggle, "Check Payment setup" button (jaise PAN check hai)
-
----
-
-## Buyer setup (source-code khareedne wale ke liye)
-
-`SETUP.md` me sirf ye lines add hongi:
-
-```
-Hosting Dashboard (Vercel/Netlify/Cloudflare) → Environment Variables:
-  PAYMENT_API_URL     = https://pay.rapidxservices.in
-  PAYMENT_USER_TOKEN  = <apka provider token>
-  PAYMENT_API_SECRET  = <agar provider secret bhi de>   (optional)
-```
-
-⚠️ **`VITE_` prefix mat lagana** — warna browser me leak ho jaayega (PAN jaisa warning).
-
-Buyer agar dusra provider use kare (Paytm/PhonePe/Cashfree/EaseBuzz), to `config.ts` me sirf 4 lines edit karega (endpoint paths + response field names). Baaki sab kaam karega.
+1. **vercel.com** khol → **Log in** (GitHub se login recommended)
+2. Top-right **"Add New..."** → **"Project"** click
+3. **"Import Git Repository"** section → apna GitHub repo select → **Import**
+4. **Configure Project** screen aayega:
+   - **Framework Preset**: `Vite` auto-detect ho jayega (agar nahi to manually select)
+   - **Root Directory**: `./` (default rehne do)
+   - **Build Command**: `npm run build` (default)
+   - **Output Directory**: `dist` (default)
+5. **"Environment Variables"** section expand karo (niche PART 2 dekh)
+6. Sab variables add karne ke baad → **"Deploy"** button
+7. 2-3 minute wait → Deploy ho jayega → URL milega jaise `your-app.vercel.app`
 
 ---
 
-## Files & Changes
+### PART 2: Environment Variables (ye sabse zaroori hai)
 
-### Naya
+Deploy ke time ya baad me: **Project → Settings → Environment Variables**
 
-1. **`src/routes/api/payment-create.ts`** — TSS server route
-   - `POST` — auth verify (Supabase JWT) → validate amount → generate `order_id` → call provider Create Order (form-encoded) → DB me `payment_orders` row `pending` status me save → response me `payment_url` return
+Har variable ke liye:
+- **Key** field me naam daalo
+- **Value** field me value paste karo
+- **Environments**: teeno tick karo (`Production`, `Preview`, `Development`)
+- **Save** click
 
-2. **`src/routes/api/payment-verify.ts`** — TSS server route
-   - `POST { order_id }` — auth verify → provider Status API call → agar `SUCCESS` aur pehle credit nahi hua to `credit_wallet_for_payment` RPC call (idempotent) → row update
+Ye variables add karo (order koi bhi):
 
-3. **`src/routes/api/public/payment-callback.ts`** — public route (agar provider server-to-server webhook bhejta hai)
-   - Signature/token verify → status API se re-verify (double check) → wallet credit
-   - Public prefix isliye kyunki provider bina auth ke hit karega
+#### A) Supabase (Frontend — public, VITE_ prefix ke saath)
+| Key | Value kahan se milega |
+|-----|----------------------|
+| `VITE_SUPABASE_URL` | Supabase dashboard → Project Settings → API → Project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase → Settings → API → `anon` `public` key |
+| `VITE_SUPABASE_PROJECT_ID` | Supabase URL ka subdomain (jaise `abcd1234` from `abcd1234.supabase.co`) |
 
-4. **`src/routes/app.wallet.payment-return.tsx`** — user redirect landing page
-   - `order_id` query param se `payment-verify` call → success/pending/failed UI
+#### B) PAN API (Server-side — VITE_ NAHI lagana)
+| Key | Value |
+|-----|-------|
+| `PAN_API_KEY` | Tera PAN provider ka API key |
 
-5. **Migration `add_payment_orders_and_rpcs.sql`**
-   - Table `payment_orders` (id, user_id, order_id unique, amount, status pending/success/failed, provider_txn_id, utr, raw jsonb, created_at, credited_at)
-   - GRANTs + RLS (user apne orders dekhe, admin sab dekhe)
-   - RPC `create_payment_order(_amount)` → row banaye, `order_id` return
-   - RPC `credit_wallet_for_payment(_order_id, _provider_txn_id, _utr, _raw)` → idempotent (agar pehle credit hua to skip), wallet balance + karega, `wallet_transactions` me `credit` entry
-   - RPC `mark_payment_failed(_order_id, _raw)`
+#### C) Payment Gateway (Server-side — VITE_ NAHI lagana)
+| Key | Value |
+|-----|-------|
+| `PAYMENT_API_URL` | `https://pay.rapidxservices.in` (ya jo bhi provider) |
+| `PAYMENT_USER_TOKEN` | RapidX dashboard → Developers section → User Token copy |
+| `PAYMENT_API_SECRET` | (Optional) Agar provider secret deta hai signature verify ke liye |
 
-### Edit
+#### D) Supabase Service Role (Optional — sirf agar callback/webhook use karna hai)
+| Key | Value |
+|-----|-------|
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → `service_role` `secret` key ⚠️ (ye kabhi kisi ko mat dena) |
+| `SUPABASE_URL` | Same as `VITE_SUPABASE_URL` |
 
-6. **`config.ts`** — payment section add:
-   ```ts
-   PAYMENT: {
-     CREATE_ORDER_PATH: "/api/create-order",
-     STATUS_PATH: "/api/check-order-status",
-     FIELDS: { token: "user_token", amount: "amount", orderId: "order_id",
-               mobile: "customer_mobile", redirect: "redirect_url" },
-     RESPONSE: { paymentUrlPath: "result.payment_url",
-                 statusPath: "result.txnStatus",
-                 utrPath: "result.utr",
-                 successValue: "SUCCESS", pendingValue: "PENDING" },
-     MIN_AMOUNT: 10, MAX_AMOUNT: 50000,
-   }
+---
+
+### PART 3: Variables add karne ke baad Redeploy
+
+⚠️ **Important**: Env variables add karne ke baad automatically redeploy nahi hota. Manually karna padega:
+
+1. **Deployments** tab (top nav)
+2. Latest deployment ke right side pe **"..."** (three dots)
+3. **"Redeploy"** click
+4. Popup me **"Use existing Build Cache"** UNTICK karo (fresh build ho)
+5. **Redeploy** button
+
+---
+
+### PART 4: RapidX Payment Provider me Redirect URL set karna
+
+1. **pay.rapidxservices.in** → Login
+2. **Developers** / **API Settings** section
+3. **Callback URL** / **Redirect URL** field me daalo:
    ```
-   Buyer alag provider use kare → sirf ye object edit → deploy → done.
-
-7. **`.env.example`** — `PAYMENT_API_URL`, `PAYMENT_USER_TOKEN`, `PAYMENT_API_SECRET` (server-side, no VITE_ warning)
-
-8. **`src/routes/app.wallet.tsx`** — "Add Money" UI card (amount input + quick chips + Pay Now button)
-
-9. **`src/lib/data-store.ts`** — helpers: `createPaymentOrder(amount)`, `verifyPayment(orderId)`, `listMyPayments()`
-
-10. **`src/routes/app.admin.tsx`** — Payment settings block (min/max amount, "Check Payment setup" health button, pending orders list with "Verify" action)
-
-11. **`SETUP.md` + `README.md`** — buyer instructions (hosting env vars, ⚠️ no VITE_ warning, provider swap guide)
+   https://your-app.vercel.app/app/payment-return
+   ```
+   (`your-app.vercel.app` ki jagah tumhara actual Vercel URL)
+4. **Webhook URL** (agar option ho):
+   ```
+   https://your-app.vercel.app/api/public/payment-callback
+   ```
+5. **Save**
 
 ---
 
-## Security
+### PART 5: Supabase side me Vercel URL whitelist
 
-- Keys **sirf server-side** (`process.env`), browser me kabhi nahi
-- Amount validation **server-side** (client trust nahi)
-- `order_id` server-generated UUID (client-supplied nahi)
-- Wallet credit **idempotent** RPC (double-credit impossible even if callback + return page dono trigger karein)
-- Public callback route signature/token verify karta hai + status API se re-verify
+1. Supabase dashboard → **Authentication** → **URL Configuration**
+2. **Site URL**: `https://your-app.vercel.app`
+3. **Redirect URLs** me add karo:
+   - `https://your-app.vercel.app/**`
+   - `https://your-app.vercel.app/app/payment-return`
+4. **Save**
 
 ---
 
-## Ek cheez confirm
+### PART 6: Database SQL run (ek baar)
 
-Aap "Check Payment setup" button chahenge admin panel me (PAN jaisa) taaki buyer easily verify kar sake ki keys sahi lagi hain? Main plan me include kar chuka hun — agar nahi chahiye to bataiye.
+1. Supabase dashboard → **SQL Editor**
+2. Project ka `database.sql` file ka pura content copy
+3. Paste → **Run**
+4. `payment_orders` table + RPCs ban jayenge
 
-Approve karein to build karta hun. Baad me agar provider ke actual response fields alag nikle to `config.ts` ki 4 lines edit karke fix ho jaayega.
+---
+
+### PART 7: Test karna
+
+1. Vercel URL open karo → Sign up / Login
+2. **Wallet** page → **Add Money** → amount daalo → **Pay Now**
+3. Provider ka page khulega → payment karo (test mode)
+4. Wapas `/app/payment-return` pe redirect hoga
+5. 5-10 second me wallet me paisa credit ho jayega
+
+---
+
+### Custom Domain (Optional)
+
+1. Vercel → Project → **Settings** → **Domains**
+2. **Add** → apna domain daalo (e.g. `myapp.com`)
+3. Vercel jo DNS records dega, wo apne domain registrar (GoDaddy/Namecheap) me add karo
+4. 5-30 min me active ho jayega
+5. PART 4 aur PART 5 me URLs update kar dena custom domain se
+
+---
+
+### Quick Checklist (buyer ke liye print karne layak)
+
+- [ ] Vercel pe project import kiya
+- [ ] Saare env vars add kiye (VITE_ vs non-VITE_ dhyan rakha)
+- [ ] Redeploy kiya
+- [ ] Supabase me SQL run kiya
+- [ ] Supabase Auth me Vercel URL whitelist kiya
+- [ ] Payment provider dashboard me redirect URL set kiya
+- [ ] Test payment successful
+
+---
+
+Approve karo to me ye pura guide `SETUP.md` / `DEPLOYMENT.md` me likh du taki buyer ke liye repo me ready mile.
