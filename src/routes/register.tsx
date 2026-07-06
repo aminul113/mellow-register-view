@@ -3,7 +3,8 @@ import { useState } from "react";
 import { z } from "zod";
 import { AuthLayout } from "@/components/AuthLayout";
 import { AuthField, AuthButton } from "@/components/AuthField";
-import { saveAccount } from "@/lib/auth-store";
+import { registerAccount } from "@/lib/auth-store";
+import { getSupabaseConfig } from "@/lib/supabase-config";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -26,12 +27,18 @@ function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const update = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setFormError(null);
+    if (!getSupabaseConfig()) {
+      navigate({ to: "/setup" });
+      return;
+    }
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
       const errs: Record<string, string> = {};
@@ -41,9 +48,14 @@ function RegisterPage() {
     }
     setErrors({});
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    saveAccount(parsed.data);
-    navigate({ to: "/dashboard" });
+    try {
+      await registerAccount(parsed.data.name, parsed.data.email, parsed.data.password);
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -80,6 +92,11 @@ function RegisterPage() {
         />
 
         <AuthButton type="submit" loading={loading}>Register</AuthButton>
+        {formError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {formError}
+          </div>
+        )}
       </form>
 
       <p className="mt-5 lg:mt-6 text-center text-sm text-muted-foreground">

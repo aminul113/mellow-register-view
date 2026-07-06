@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { getAccount, currentSessionEmail, logout } from "@/lib/auth-store";
+import { getCurrentAccount, logout } from "@/lib/auth-store";
+import { getSupabaseConfig } from "@/lib/supabase-config";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -18,14 +19,18 @@ function DashboardPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const email = currentSessionEmail();
-    if (!email) {
-      navigate({ to: "/login" });
+    if (!getSupabaseConfig()) {
+      navigate({ to: "/setup" });
       return;
     }
-    const a = getAccount();
-    setName(a?.name ?? email);
-    setReady(true);
+    getCurrentAccount().then((a) => {
+      if (!a) {
+        navigate({ to: "/login" });
+        return;
+      }
+      setName(a.name);
+      setReady(true);
+    });
   }, [navigate]);
 
   if (!ready) return null;
@@ -36,8 +41,8 @@ function DashboardPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="font-bold tracking-wide">PANME SHOP</div>
           <button
-            onClick={() => {
-              logout();
+            onClick={async () => {
+              await logout();
               navigate({ to: "/login" });
             }}
             className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20 transition-colors"

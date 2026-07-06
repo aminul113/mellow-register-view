@@ -1,35 +1,42 @@
-const KEY = "panme_account";
-const SESSION = "panme_session";
+import { requireSupabase, getSupabase } from "./supabase-config";
 
-export type Account = { name: string; email: string; password: string };
+export type Account = { name: string; email: string };
 
-export function saveAccount(a: Account) {
-  localStorage.setItem(KEY, JSON.stringify(a));
-  localStorage.setItem(SESSION, a.email);
+export async function registerAccount(name: string, email: string, password: string) {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name },
+      emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+    },
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
-export function getAccount(): Account | null {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Account) : null;
-  } catch {
-    return null;
-  }
+export async function loginAccount(email: string, password: string) {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
-export function login(email: string, password: string): Account | null {
-  const a = getAccount();
-  if (a && a.email.toLowerCase() === email.toLowerCase() && a.password === password) {
-    localStorage.setItem(SESSION, a.email);
-    return a;
-  }
-  return null;
+export async function logout() {
+  const supabase = getSupabase();
+  if (supabase) await supabase.auth.signOut();
 }
 
-export function currentSessionEmail(): string | null {
-  return typeof window !== "undefined" ? localStorage.getItem(SESSION) : null;
-}
-
-export function logout() {
-  localStorage.removeItem(SESSION);
+export async function getCurrentAccount(): Promise<Account | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user) return null;
+  const name =
+    (user.user_metadata?.name as string | undefined) ??
+    user.email?.split("@")[0] ??
+    "there";
+  return { name, email: user.email ?? "" };
 }
