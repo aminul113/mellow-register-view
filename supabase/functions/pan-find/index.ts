@@ -53,25 +53,46 @@ Deno.serve(async (req) => {
   const { data: userRes, error: userErr } = await sb.auth.getUser(token);
   if (userErr || !userRes?.user) return json({ outcome: "error", message: "Unauthorized" }, 401);
 
-  // --- 2. Validate input ---
+  // --- 2. Safe health check for Admin Panel / buyer setup diagnostics ---
+  // Returns only status flags. Never returns or logs the actual provider keys.
   let body: any;
   try { body = await req.json(); } catch { return json({ outcome: "error", message: "Invalid JSON body" }, 400); }
+
+  if (body?.health_check === true) {
+    const hasApiKey = !!Deno.env.get("PAN_API_KEY");
+    const hasApiSecret = !!Deno.env.get("PAN_API_SECRET");
+    return json({
+      outcome: hasApiKey && hasApiSecret ? "ready" : "missing_secrets",
+      function: "pan-find",
+      deployed: true,
+      secrets: {
+        PAN_API_KEY: hasApiKey,
+        PAN_API_SECRET: hasApiSecret,
+      },
+      message: hasApiKey && hasApiSecret
+        ? "PAN function is deployed and provider secrets are present."
+        : "PAN_API_KEY / PAN_API_SECRET missing. Add them in Supabase → Edge Functions → Secrets, then redeploy pan-find.",
+    });
+  }
+
+  // --- 3. Validate input ---
   const aadhaar = String(body?.aadhaar_number ?? "").trim();
   if (!/^[0-9]{12}$/.test(aadhaar)) {
     return json({ outcome: "error", message: "aadhaar_number must be a valid 12-digit number" }, 400);
   }
 
-  // --- 3. Provider secrets ---
+  // --- 4. Provider secrets ---
   const API_KEY = Deno.env.get("PAN_API_KEY");
   const API_SECRET = Deno.env.get("PAN_API_SECRET");
   if (!API_KEY || !API_SECRET) {
     return json({
       outcome: "error",
-      message: "PAN API not configured. Set PAN_API_KEY and PAN_API_SECRET in Supabase → Edge Functions → Secrets.",
+      code: "missing_secrets",
+      message: "PAN API not configured. Set PAN_API_KEY and PAN_API_SECRET in Supabase → Edge Functions → Secrets, then redeploy pan-find.",
     }, 500);
   }
 
-  // --- 4. Call provider ---
+  // --- 5. Call provider ---
   const PROVIDER_URL = "https://panmanagerai.in/service-api/v1/instant-aadhaar-to-pan/find-pan";
   let providerRaw: any;
   let providerStatus = 0;
@@ -107,7 +128,7 @@ Deno.serve(async (req) => {
     has_pan: !!pan,
   });
 
-  // --- 5. Outcome mapping (per API docs) ---
+  // --- 6. Outcome mapping (per API docs) ---
   let outcome: "success" | "not_found" | "error";
   let message: string = providerRaw?.message ?? "";
   if (providerRaw?.status === true && pan) {

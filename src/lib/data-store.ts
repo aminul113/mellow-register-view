@@ -121,11 +121,70 @@ export async function getDashboardStats() {
   return { balance: wallet.balance, total, rejected, recent };
 }
 
-// ---------- PAN search flow (stubbed API — Phase 2 replaces the fetch) ----------
+// ---------- PAN search flow ----------
 export type PanSearchResult =
   | { status: "success"; pan: string; name: string; dob: string; search_id: string }
   | { status: "not_found"; message: string; search_id: string }
   | { status: "error"; message: string; search_id: string };
+
+export type PanServiceHealth = {
+  status: "ready" | "missing_secrets" | "function_missing" | "unauthorized" | "error";
+  message: string;
+};
+
+function getPanServiceErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const lower = raw.toLowerCase();
+
+  if (lower.includes("function not found") || lower.includes("404") || lower.includes("not found")) {
+    return "PAN function `pan-find` is not deployed in this Supabase project. Deploy it from SETUP.md Step 6.5, then test again. Wallet refunded.";
+  }
+
+  if (lower.includes("jwt") || lower.includes("unauthorized") || lower.includes("401")) {
+    return "PAN function rejected the session. Logout/login again. If it continues, deploy `pan-find` with JWT verification enabled for this same Supabase project. Wallet refunded.";
+  }
+
+  if (lower.includes("failed to fetch") || lower.includes("network") || lower.includes("fetch")) {
+    return "PAN service is unreachable. Check that `pan-find` is deployed to the same Supabase project used in config.ts / Vercel env vars, then redeploy it. Wallet refunded.";
+  }
+
+  return "PAN service returned an error. Check Supabase → Edge Functions → pan-find logs and confirm PAN_API_KEY / PAN_API_SECRET are set in Edge Function Secrets. Wallet refunded.";
+}
+
+export async function checkPanServiceHealth(): Promise<PanServiceHealth> {
+  const sb = requireSupabase();
+  try {
+    const { data, error } = await sb.functions.invoke("pan-find", {
+      body: { health_check: true },
+    });
+
+    if (error) {
+      const raw = error.message || "";
+      const lower = raw.toLowerCase();
+      if (lower.includes("function not found") || lower.includes("404") || lower.includes("not found")) {
+        return { status: "function_missing", message: "pan-find function is not deployed in this Supabase project." };
+      }
+      if (lower.includes("unauthorized") || lower.includes("jwt") || lower.includes("401")) {
+        return { status: "unauthorized", message: "Login session rejected. Logout/login and try again." };
+      }
+      return { status: "error", message: raw || "Health check failed." };
+    }
+
+    const outcome = data?.outcome;
+    if (outcome === "ready") {
+      return { status: "ready", message: data?.message ?? "PAN function is ready." };
+    }
+    if (outcome === "missing_secrets") {
+      return {
+        status: "missing_secrets",
+        message: data?.message ?? "PAN_API_KEY / PAN_API_SECRET are missing in Edge Function Secrets.",
+      };
+    }
+    return { status: "error", message: data?.message ?? "Unexpected health check response." };
+  } catch (error) {
+    return { status: "error", message: getPanServiceErrorMessage(error) };
+  }
+}
 
 export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
   const sb = requireSupabase();
@@ -177,8 +236,7 @@ export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
     apiResult = {
       status: "error",
       raw: { error: e instanceof Error ? e.message : String(e) },
-      message:
-        "PAN service unreachable. Wallet refunded. If this keeps happening, deploy the `pan-find` edge function and set PAN_API_KEY / PAN_API_SECRET (see SETUP.md).",
+      message: getPanServiceErrorMessage(e),
     };
   }
 
