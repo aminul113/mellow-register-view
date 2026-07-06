@@ -24,6 +24,7 @@ import { Route as ApiPaymentVerifyRouteImport } from './routes/api/payment-verif
 import { Route as ApiPaymentCreateRouteImport } from './routes/api/payment-create'
 import { Route as ApiPanFindRouteImport } from './routes/api/pan-find'
 import { Route as AppWalletPaymentReturnRouteImport } from './routes/app.wallet.payment-return'
+import { Route as ApiPublicPaymentCallbackRouteImport } from './routes/api/public/payment-callback'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -100,6 +101,12 @@ const AppWalletPaymentReturnRoute = AppWalletPaymentReturnRouteImport.update({
   path: '/payment-return',
   getParentRoute: () => AppWalletRoute,
 } as any)
+const ApiPublicPaymentCallbackRoute =
+  ApiPublicPaymentCallbackRouteImport.update({
+    id: '/api/public/payment-callback',
+    path: '/api/public/payment-callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/app/support': typeof AppSupportRoute
   '/app/wallet': typeof AppWalletRouteWithChildren
   '/app/': typeof AppIndexRoute
+  '/api/public/payment-callback': typeof ApiPublicPaymentCallbackRoute
   '/app/wallet/payment-return': typeof AppWalletPaymentReturnRoute
 }
 export interface FileRoutesByTo {
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/app/support': typeof AppSupportRoute
   '/app/wallet': typeof AppWalletRouteWithChildren
   '/app': typeof AppIndexRoute
+  '/api/public/payment-callback': typeof ApiPublicPaymentCallbackRoute
   '/app/wallet/payment-return': typeof AppWalletPaymentReturnRoute
 }
 export interface FileRoutesById {
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/app/support': typeof AppSupportRoute
   '/app/wallet': typeof AppWalletRouteWithChildren
   '/app/': typeof AppIndexRoute
+  '/api/public/payment-callback': typeof ApiPublicPaymentCallbackRoute
   '/app/wallet/payment-return': typeof AppWalletPaymentReturnRoute
 }
 export interface FileRouteTypes {
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/app/support'
     | '/app/wallet'
     | '/app/'
+    | '/api/public/payment-callback'
     | '/app/wallet/payment-return'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/app/support'
     | '/app/wallet'
     | '/app'
+    | '/api/public/payment-callback'
     | '/app/wallet/payment-return'
   id:
     | '__root__'
@@ -202,6 +214,7 @@ export interface FileRouteTypes {
     | '/app/support'
     | '/app/wallet'
     | '/app/'
+    | '/api/public/payment-callback'
     | '/app/wallet/payment-return'
   fileRoutesById: FileRoutesById
 }
@@ -214,6 +227,7 @@ export interface RootRouteChildren {
   ApiPanFindRoute: typeof ApiPanFindRoute
   ApiPaymentCreateRoute: typeof ApiPaymentCreateRoute
   ApiPaymentVerifyRoute: typeof ApiPaymentVerifyRoute
+  ApiPublicPaymentCallbackRoute: typeof ApiPublicPaymentCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -323,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWalletPaymentReturnRouteImport
       parentRoute: typeof AppWalletRoute
     }
+    '/api/public/payment-callback': {
+      id: '/api/public/payment-callback'
+      path: '/api/public/payment-callback'
+      fullPath: '/api/public/payment-callback'
+      preLoaderRoute: typeof ApiPublicPaymentCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -367,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPanFindRoute: ApiPanFindRoute,
   ApiPaymentCreateRoute: ApiPaymentCreateRoute,
   ApiPaymentVerifyRoute: ApiPaymentVerifyRoute,
+  ApiPublicPaymentCallbackRoute: ApiPublicPaymentCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

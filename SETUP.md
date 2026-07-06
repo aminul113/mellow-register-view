@@ -32,12 +32,25 @@ Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common
    - `VITE_ADMIN_EMAIL`
    - `PAN_API_KEY`   ← ⚠️ **NO `VITE_` prefix** (server-side only)
    - `PAN_API_SECRET` ← ⚠️ **NO `VITE_` prefix** (server-side only)
+   - `PAYMENT_API_URL`     ← e.g. `https://pay.rapidxservices.in` (⚠️ NO `VITE_`)
+   - `PAYMENT_USER_TOKEN`  ← your gateway token (⚠️ NO `VITE_`)
+   - `PAYMENT_API_SECRET`  ← optional (⚠️ NO `VITE_`)
+   - `SUPABASE_SERVICE_ROLE_KEY` ← optional, only if you configure the
+     provider server-to-server callback URL `/api/public/payment-callback`
+     (⚠️ NO `VITE_`)
 4. **Deploy**. 2 min me live URL mil jayega.
 
 > ⚠️ **Warning:** `PAN_API_KEY` / `PAN_API_SECRET` par KABHI `VITE_` prefix mat
 > lagao. `VITE_` prefix wali env vars browser bundle me chali jaati hain aur
 > koi bhi DevTools → Sources me dekh ke key nikaal sakta hai. Aapke PanManager
 > account ka credit misuse ho jayega.
+>
+> Yahi rule `PAYMENT_*` env vars par bhi lagta hai — kabhi `VITE_` prefix
+> mat lagana.
+>
+> **Alag payment provider use karna hai?** Sirf `config.ts` me
+> `APP_CONFIG.PAYMENT` block edit karo (endpoint paths + field names +
+> response paths). Koi code change nahi.
 
 > ⚠️ **Admin Panel dikhne ke liye** (Vercel/Netlify/Cloudflare — sab ke liye same):
 > Env var `VITE_ADMIN_EMAIL` sirf frontend fallback hai. Real admin role
