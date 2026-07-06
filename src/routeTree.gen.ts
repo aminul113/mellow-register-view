@@ -20,6 +20,8 @@ import { Route as AppSupportRouteImport } from './routes/app.support'
 import { Route as AppPanListRouteImport } from './routes/app.pan-list'
 import { Route as AppPanFinderRouteImport } from './routes/app.pan-finder'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as ApiPaymentVerifyRouteImport } from './routes/api/payment-verify'
+import { Route as ApiPaymentCreateRouteImport } from './routes/api/payment-create'
 import { Route as ApiPanFindRouteImport } from './routes/api/pan-find'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -77,6 +79,16 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPaymentVerifyRoute = ApiPaymentVerifyRouteImport.update({
+  id: '/api/payment-verify',
+  path: '/api/payment-verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentCreateRoute = ApiPaymentCreateRouteImport.update({
+  id: '/api/payment-create',
+  path: '/api/payment-create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPanFindRoute = ApiPanFindRouteImport.update({
   id: '/api/pan-find',
   path: '/api/pan-find',
@@ -90,6 +102,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/api/pan-find': typeof ApiPanFindRoute
+  '/api/payment-create': typeof ApiPaymentCreateRoute
+  '/api/payment-verify': typeof ApiPaymentVerifyRoute
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
@@ -103,6 +117,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/api/pan-find': typeof ApiPanFindRoute
+  '/api/payment-create': typeof ApiPaymentCreateRoute
+  '/api/payment-verify': typeof ApiPaymentVerifyRoute
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
@@ -118,6 +134,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/api/pan-find': typeof ApiPanFindRoute
+  '/api/payment-create': typeof ApiPaymentCreateRoute
+  '/api/payment-verify': typeof ApiPaymentVerifyRoute
   '/app/admin': typeof AppAdminRoute
   '/app/pan-finder': typeof AppPanFinderRoute
   '/app/pan-list': typeof AppPanListRoute
@@ -134,6 +152,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/api/pan-find'
+    | '/api/payment-create'
+    | '/api/payment-verify'
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
@@ -147,6 +167,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/api/pan-find'
+    | '/api/payment-create'
+    | '/api/payment-verify'
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
@@ -161,6 +183,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/api/pan-find'
+    | '/api/payment-create'
+    | '/api/payment-verify'
     | '/app/admin'
     | '/app/pan-finder'
     | '/app/pan-list'
@@ -176,6 +200,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   ApiPanFindRoute: typeof ApiPanFindRoute
+  ApiPaymentCreateRoute: typeof ApiPaymentCreateRoute
+  ApiPaymentVerifyRoute: typeof ApiPaymentVerifyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -257,6 +283,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/payment-verify': {
+      id: '/api/payment-verify'
+      path: '/api/payment-verify'
+      fullPath: '/api/payment-verify'
+      preLoaderRoute: typeof ApiPaymentVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payment-create': {
+      id: '/api/payment-create'
+      path: '/api/payment-create'
+      fullPath: '/api/payment-create'
+      preLoaderRoute: typeof ApiPaymentCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pan-find': {
       id: '/api/pan-find'
       path: '/api/pan-find'
@@ -294,6 +334,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   ApiPanFindRoute: ApiPanFindRoute,
+  ApiPaymentCreateRoute: ApiPaymentCreateRoute,
+  ApiPaymentVerifyRoute: ApiPaymentVerifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

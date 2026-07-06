@@ -112,17 +112,11 @@ export const Route = createFileRoute("/api/payment-create")({
         const roundedAmount = Math.round(amount * 100) / 100;
 
         // --- Create pending order in DB (server-generated order_id) ---
-        const { data: orderRow, error: orderErr } = await sb.rpc("create_payment_order", {
-          _amount: roundedAmount,
-          _token: token, // used only to authenticate the RPC as the user
-        });
-        // The RPC uses auth.uid() so we call it via a user-scoped client:
+        // Use a user-scoped client so auth.uid() works inside the RPC.
         const sbUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           auth: { persistSession: false, autoRefreshToken: false },
           global: { headers: { Authorization: `Bearer ${token}` } },
         });
-        // Re-issue via user client (the first call was without user context)
-        void orderRow; void orderErr;
         const { data: created, error: createErr } = await sbUser.rpc("create_payment_order", {
           _amount: roundedAmount,
         });
