@@ -19,6 +19,15 @@ export const APP_CONFIG = {
   //    It is a long string starting with "eyJ..."
   SUPABASE_ANON_KEY:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjYWRkaGFyZm11YWdwbHZiam5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTk3OTAsImV4cCI6MjA5ODg5NTc5MH0.Fp_YN89HnLCye-Jg_CkL3AC8n5T127CPbJnia6CyVQ4",
+
+  // 3) First admin email. The user who signs up with THIS email will be
+  //    automatically granted the "admin" role. Change this before running
+  //    database.sql on a fresh project.
+  ADMIN_EMAIL: "admin@example.com",
+
+  // 4) Default price (in ₹) charged per PAN search until the admin sets a
+  //    price from the Admin panel. Only used as a fallback.
+  DEFAULT_SEARCH_PRICE: 2,
 };
 
 // =====================================================================
