@@ -6,8 +6,8 @@ import { verifyPayment } from "@/lib/data-store";
 type VerifyState =
   | { kind: "loading" }
   | { kind: "success"; amount: number }
-  | { kind: "pending" }
-  | { kind: "failed"; message?: string };
+  | { kind: "pending"; raw?: unknown; resolved_status?: unknown }
+  | { kind: "failed"; message?: string; raw?: unknown; resolved_status?: unknown };
 
 export const Route = createFileRoute("/app/payment-return")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -33,8 +33,8 @@ function PaymentReturnPage() {
         const r = await verifyPayment(order_id);
         if (cancelled) return;
         if (r.status === "success") setState({ kind: "success", amount: r.amount ?? 0 });
-        else if (r.status === "pending") setState({ kind: "pending" });
-        else setState({ kind: "failed", message: r.message });
+        else if (r.status === "pending") setState({ kind: "pending", raw: r.raw, resolved_status: r.resolved_status });
+        else setState({ kind: "failed", message: r.message, raw: r.raw, resolved_status: r.resolved_status });
       } catch (e) {
         if (cancelled) return;
         setState({ kind: "failed", message: e instanceof Error ? e.message : "Verification failed" });
@@ -46,9 +46,9 @@ function PaymentReturnPage() {
     };
   }, [order_id, tries]);
 
-  // Auto re-poll every 5s while pending, up to ~1 min
+  // Auto re-poll every 5s while pending, up to ~2 min
   useEffect(() => {
-    if (state.kind !== "pending" || tries > 12) return;
+    if (state.kind !== "pending" || tries > 24) return;
     const t = setTimeout(() => setTries((n) => n + 1), 5000);
     return () => clearTimeout(t);
   }, [state, tries]);
@@ -95,6 +95,13 @@ function PaymentReturnPage() {
             >
               <Loader2 className="h-4 w-4" /> Check again
             </button>
+            {state.raw !== undefined && (
+              <details className="mt-6 text-left rounded-xl border bg-muted/30 p-3 text-xs">
+                <summary className="cursor-pointer font-medium">Debug: gateway response</summary>
+                <div className="mt-2">Resolved status: <code>{JSON.stringify(state.resolved_status)}</code></div>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(state.raw, null, 2)}</pre>
+              </details>
+            )}
           </>
         )}
         {state.kind === "failed" && (
@@ -112,6 +119,13 @@ function PaymentReturnPage() {
             >
               Back to Wallet
             </Link>
+            {state.raw !== undefined && (
+              <details className="mt-6 text-left rounded-xl border bg-muted/30 p-3 text-xs">
+                <summary className="cursor-pointer font-medium">Debug: gateway response</summary>
+                <div className="mt-2">Resolved status: <code>{JSON.stringify(state.resolved_status)}</code></div>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(state.raw, null, 2)}</pre>
+              </details>
+            )}
           </>
         )}
       </div>
