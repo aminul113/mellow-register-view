@@ -1,9 +1,66 @@
 # PANME SHOP — Setup Guide
 
-Buyer ke liye complete step-by-step guide. Aapko sirf **2 files** touch karni hain:
+Buyer ke liye complete step-by-step guide. **4 hosting options** available:
 
-1. `config.ts` — apne Supabase details paste karo
-2. `database.sql` — iska content Supabase SQL Editor me paste karke Run karo
+- **A. GitHub Codespaces** (browser me sab kuch, kuch install nahi)
+- **B. Vercel** (1-click deploy)
+- **C. Netlify** (1-click deploy)
+- **D. Hostinger / cPanel / shared hosting** (static upload)
+
+Sabhi ke liye pehle **Supabase setup (Step 3 + Step 5)** karna hai — wo common hai.
+
+---
+
+## 🎯 Hosting Quick Guides (choose one, after Supabase setup)
+
+### A. GitHub Codespaces (easiest — no install)
+
+1. Repo fork karo (GitHub → **Fork**).
+2. Fork me → **Code → Codespaces → Create codespace on main**.
+3. 1-2 min me VS Code browser me khul jayega. Terminal apne aap `bun install` chalayega.
+4. Left me `config.ts` kholo → Supabase URL + anon key + admin email paste → **Ctrl+S**.
+5. Terminal me: `bun run dev` → forwarded port 8080 pe app khul jayega.
+6. Changes commit: **Source Control** tab → message likho → **Commit & Push**.
+
+### B. Vercel (1-click)
+
+1. README ka **Deploy to Vercel** button click.
+2. Repo import ka option → apne fork ka URL do.
+3. Env vars maango to ye 3 daalo:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_ADMIN_EMAIL`
+4. **Deploy**. 2 min me live URL mil jayega.
+
+### C. Netlify (1-click)
+
+1. README ka **Deploy to Netlify** button click.
+2. GitHub authorize → repo pick.
+3. Site settings → **Environment variables** me wahi 3 env vars daalo.
+4. **Trigger deploy → Clear cache & deploy site**. `netlify.toml` build + SPA redirect already handle karta hai.
+
+### D. Hostinger / cPanel / shared hosting
+
+1. Local pe (ya Codespaces me) `config.ts` fill karo.
+2. Build karo:
+   ```bash
+   bun install
+   bun run build
+   ```
+3. `dist/` folder banega. Uska **saara content** (including `.htaccess`) Hostinger File Manager → `public_html/` me upload karo.
+4. `public/.htaccess` build ke saath copy ho jata hai — SPA deep-links (jaise `/app/wallet` refresh) chalte hain.
+5. Domain pe khol ke test karo.
+
+> **Cloudflare Pages:** Connect repo → Framework preset **None** → Build cmd `bun run build` → Output dir `dist` → Env vars daalo (same 3).
+
+---
+
+## Common Supabase setup
+
+Aapko sirf **2 files** touch karni hain:
+
+1. `config.ts` (ya host pe env vars) — Supabase details
+2. `database.sql` — Supabase SQL Editor me paste + Run
 
 Bas. Koi coding nahi.
 
