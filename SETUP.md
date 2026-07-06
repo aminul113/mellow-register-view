@@ -7,6 +7,11 @@ Buyer ke liye complete step-by-step guide. Aapko sirf **2 files** touch karni ha
 
 Bas. Koi coding nahi.
 
+> **Admin banna:** `config.ts` me `ADMIN_EMAIL` set karo AUR `database.sql` ke top me `insert into public.admin_emails(email) values ('admin@example.com')` line me wahi email daalo. Us email se signup karte hi admin role auto-grant ho jayega.
+> **Search price:** default ₹2. Admin panel → Settings se change kar sakte ho.
+> **Support contacts:** Admin panel → Settings me phone / WhatsApp / email daalo — Support page aur wallet top-up modal me automatic dikhega.
+> **Wallet top-up:** Users admin ko contact karenge → admin `Admin → Users & Wallets` se manually credit karega. (Payment gateway phir kabhi add kar sakte hain.)
+
 ---
 
 ## Step 1 — Requirements
