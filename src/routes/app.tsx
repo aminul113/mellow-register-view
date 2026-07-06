@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { getCurrentAccount, logout } from "@/lib/auth-store";
 import { isCurrentUserAdmin } from "@/lib/data-store";
 import { Toaster } from "@/components/ui/sonner";
+import { swalConfirm, swalOk } from "@/lib/swal";
 
 export const Route = createFileRoute("/app")({
   head: () => ({ meta: [{ title: "Dashboard — PANME SHOP" }] }),
@@ -32,8 +33,14 @@ function AppLayout() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground text-sm">
-        Loading…
+      <div className="min-h-screen bg-background p-6 space-y-4">
+        <div className="h-14 rounded-xl bg-primary/10 animate-pulse" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+          <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+          <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+        </div>
+        <div className="h-64 rounded-2xl bg-primary/10 animate-pulse" />
       </div>
     );
   }
@@ -44,7 +51,10 @@ function AppLayout() {
         <AppSidebar
           isAdmin={isAdmin}
           onLogout={async () => {
+            const ok = await swalConfirm("Logout?", "You will need to sign in again.");
+            if (!ok) return;
             await logout();
+            await swalOk("Logged out", "See you soon!");
             navigate({ to: "/login" });
           }}
         />

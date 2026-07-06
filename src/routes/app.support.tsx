@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { MessageCircle, Phone, Mail, Headphones } from "lucide-react";
 import { getSettings, type AppSettings } from "@/lib/data-store";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/app/support")({
   component: SupportPage,
@@ -32,7 +33,11 @@ function SupportPage() {
         </div>
       </div>
 
-      {!has ? (
+      {s === null ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[0,1,2].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+        </div>
+      ) : !has ? (
         <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
           Support contacts are not set yet. The admin can configure them from Admin → Settings.
         </div>

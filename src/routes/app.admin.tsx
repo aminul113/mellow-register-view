@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import {
   adminCreditWallet,
   adminFindUser,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/data-store";
 import { StatusPill } from "./app.index";
 import { useRefreshBranding } from "@/lib/branding";
+import { swalOk, swalError, swalConfirm } from "@/lib/swal";
 
 export const Route = createFileRoute("/app/admin")({
   component: AdminPage,
@@ -33,7 +33,12 @@ function AdminPage() {
     });
   }, [navigate]);
 
-  if (ok === null) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (ok === null) return (
+    <div className="max-w-6xl mx-auto w-full space-y-4">
+      <div className="h-24 rounded-2xl bg-primary/10 animate-pulse" />
+      <div className="h-64 rounded-2xl bg-primary/10 animate-pulse" />
+    </div>
+  );
   if (!ok) return null;
 
   return (
@@ -75,8 +80,7 @@ function UsersTab() {
     try {
       const rows = await adminListUsers(q, 50);
       setUsers(rows);
-      if (rows.length === 0) toast.error("User not found");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Users load failed"); }
+    } catch (e) { swalError("Users load failed", e instanceof Error ? e.message : ""); }
     finally { setSearching(false); }
   }
 
@@ -107,15 +111,15 @@ function UsersTab() {
   async function credit() {
     if (!found) return;
     const amt = Number(amount);
-    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!amt || amt <= 0) { swalError("Invalid amount", "Enter a valid amount."); return; }
     setLoading(true);
     try {
       await adminCreditWallet(found.user_id, amt, note || "Admin credit");
-      toast.success(`Credited ₹${amt} to ${found.email}`);
+      await swalOk("Credited successfully", `₹${amt} credited to ${found.email}`);
       setAmount(""); setNote("");
       const r = await adminFindUser(found.email); setFound(r);
       await loadUsers(email);
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) { swalError("Credit failed", e instanceof Error ? e.message : ""); }
     finally { setLoading(false); }
   }
 
@@ -199,9 +203,9 @@ function SettingsTab() {
     setSaving(true);
     try {
       await adminUpdateSettings(s);
-      toast.success("Settings saved");
+      swalOk("Settings saved");
       refreshBranding();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Save failed"); }
+    } catch (e) { swalError("Save failed", e instanceof Error ? e.message : ""); }
     finally { setSaving(false); }
   }
 
@@ -214,7 +218,7 @@ function SettingsTab() {
       if (!file || !s) return;
       const maxKb = kind === "favicon" ? 100 : 400;
       if (file.size > maxKb * 1024) {
-        toast.error(`Image too large. Keep under ${maxKb} KB.`);
+        swalError("Image too large", `Keep under ${maxKb} KB.`);
         return;
       }
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -224,7 +228,7 @@ function SettingsTab() {
         r.readAsDataURL(file);
       });
       setS(kind === "logo" ? { ...s, logo_url: dataUrl } : { ...s, favicon_url: dataUrl });
-      toast.success(`${kind === "logo" ? "Logo" : "Favicon"} loaded — click Save settings.`);
+      swalOk(`${kind === "logo" ? "Logo" : "Favicon"} loaded`, "Click Save settings to apply.");
     };
     input.click();
   }
@@ -323,14 +327,15 @@ function AllSearchesTab() {
   useEffect(() => { refresh(); }, []);
 
   async function forceRefund(id: string) {
-    if (!confirm("Force-refund this pending search? This is safe to run — it's a no-op if already finalized.")) return;
+    const ok = await swalConfirm("Force refund?", "Safe to run — no-op if already finalized.");
+    if (!ok) return;
     setBusy(id);
     try {
       await adminForceRefundSearch(id);
-      toast.success("Refunded");
+      swalOk("Refunded");
       await refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      swalError("Refund failed", e instanceof Error ? e.message : "");
     } finally {
       setBusy(null);
     }

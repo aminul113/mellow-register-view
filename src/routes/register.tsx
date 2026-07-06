@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AuthLayout } from "@/components/AuthLayout";
 import { AuthField, AuthButton } from "@/components/AuthField";
 import { registerAccount } from "@/lib/auth-store";
+import { swalOk, swalError } from "@/lib/swal";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -45,9 +46,12 @@ function RegisterPage() {
     setLoading(true);
     try {
       await registerAccount(parsed.data.name, parsed.data.email, parsed.data.password);
+      await swalOk("Account created", "Welcome to your dashboard!");
       navigate({ to: "/app" });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Registration failed");
+      const msg = err instanceof Error ? err.message : "Registration failed";
+      setFormError(msg);
+      swalError("Registration failed", msg);
     } finally {
       setLoading(false);
     }
