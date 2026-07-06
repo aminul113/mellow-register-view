@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Phone, Mail, HeadphonesIcon } from "lucide-react";
+import { MessageCircle, Phone, Mail, Headphones } from "lucide-react";
 import { getSettings, type AppSettings } from "@/lib/data-store";
 
 export const Route = createFileRoute("/app/support")({
@@ -23,7 +23,7 @@ function SupportPage() {
         <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
         <div className="relative flex items-center gap-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur-sm">
-            <HeadphonesIcon className="h-6 w-6" />
+            <Headphones className="h-6 w-6" />
           </div>
           <div>
             <div className="text-lg font-bold">We are here to help</div>
