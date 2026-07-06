@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AuthLayout } from "@/components/AuthLayout";
 import { AuthField, AuthButton } from "@/components/AuthField";
 import { loginAccount } from "@/lib/auth-store";
+import { swalOk, swalError } from "@/lib/swal";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -44,9 +45,12 @@ function LoginPage() {
     setLoading(true);
     try {
       await loginAccount(parsed.data.email, parsed.data.password);
+      await swalOk("Login successful", "Welcome back!");
       navigate({ to: "/app" });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      setFormError(msg);
+      swalError("Login failed", msg);
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { getCurrentAccount, logout } from "@/lib/auth-store";
 import { isCurrentUserAdmin } from "@/lib/data-store";
 import { Toaster } from "@/components/ui/sonner";
+import { swalConfirm, swalOk } from "@/lib/swal";
 
 export const Route = createFileRoute("/app")({
   head: () => ({ meta: [{ title: "Dashboard — PANME SHOP" }] }),
@@ -44,7 +45,10 @@ function AppLayout() {
         <AppSidebar
           isAdmin={isAdmin}
           onLogout={async () => {
+            const ok = await swalConfirm("Logout?", "You will need to sign in again.");
+            if (!ok) return;
             await logout();
+            await swalOk("Logged out", "See you soon!");
             navigate({ to: "/login" });
           }}
         />
