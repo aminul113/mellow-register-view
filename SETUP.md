@@ -82,14 +82,31 @@ export const APP_CONFIG = {
 
 Ab tables, users, permissions sab ek script se ban jayenge.
 
-1. Supabase dashboard → left sidebar → **SQL Editor**
-2. **+ New query** click karo
-3. Code folder me `database.sql` file kholo → **saara content copy** karo (Ctrl+A → Ctrl+C)
-4. Supabase ke SQL Editor me paste karo
-5. Right-bottom me **Run** button dabao (ya `Ctrl+Enter`)
-6. Green success message aana chahiye: *"Success. No rows returned."*
+1. Code folder me `database.sql` file kholo
+2. **Line ~20** dhundo:
+   ```sql
+   insert into public.admin_emails(email) values ('admin@example.com')
+   ```
+   `admin@example.com` ki jagah **wahi email** daalo jo aapne `config.ts` me `ADMIN_EMAIL` me set ki thi. Us email se signup karte hi admin role auto-grant ho jayega.
+3. File **save** karo (`Ctrl+S`)
+4. Supabase dashboard → left sidebar → **SQL Editor** → **+ New query**
+5. `database.sql` ka **saara content copy** karo (Ctrl+A → Ctrl+C) → SQL Editor me paste
+6. Right-bottom me **Run** button dabao (ya `Ctrl+Enter`)
+7. Green success message aana chahiye: *"Success. No rows returned."*
 
-Verify karne ke liye: left sidebar → **Table Editor** → aapko `profiles`, `user_roles`, `pan_reports` tables dikhengi.
+**Verify karo** — left sidebar → **Table Editor** me ye **7 tables** dikhni chahiye:
+
+| Table | Purpose |
+|-------|---------|
+| `admin_emails` | Admin email whitelist |
+| `profiles` | User name / email |
+| `user_roles` | Role assignments (admin / user) |
+| `wallets` | Har user ka balance |
+| `wallet_transactions` | Credit / debit / refund history |
+| `pan_searches` | PAN search records (Aadhaar last 4 only) |
+| `app_settings` | Search price + support contacts (singleton) |
+
+Agar koi table missing hai, SQL dobara run karo — script idempotent hai, safe hai.
 
 ---
 
