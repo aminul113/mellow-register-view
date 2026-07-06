@@ -122,42 +122,65 @@ export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
   const { data: debitData, error: debitErr } = await sb.rpc("debit_wallet_for_search", {
     _aadhaar_last4: last4,
   });
-  if (debitErr) throw new Error(debitErr.message);
+  if (debitErr) {
+    const msg = debitErr.message || "";
+    if (/insufficient balance/i.test(msg)) {
+      throw new Error("INSUFFICIENT_BALANCE");
+    }
+    throw new Error(msg || "Failed to start search");
+  }
   const row = Array.isArray(debitData) ? debitData[0] : debitData;
   const searchId: string = row?.search_id;
   if (!searchId) throw new Error("Failed to start search");
 
-  // 2) CALL EXTERNAL PAN API HERE (Phase 2 — replace the block below)
-  //    Expected shape after mapping: { status, pan?, name?, dob?, raw }
-  //    Right now we simulate an "error" so the auto-refund path is exercised.
-  const apiResult: {
+  // 2) Call the Supabase Edge Function `pan-find` (keys never touch the browser).
+  //    Any thrown error / network failure is caught → finalize as 'error' → auto-refund.
+  let apiResult: {
     status: "success" | "not_found" | "error";
-    pan?: string;
-    name?: string;
-    dob?: string;
+    pan?: string | null;
+    name?: string | null;
+    dob?: string | null;
     raw: unknown;
     message?: string;
-  } = {
-    status: "error",
-    raw: { stub: true, message: "PAN API not configured yet. Buyer will plug the provider here." },
-    message: "PAN API not configured yet. See src/lib/data-store.ts → runPanSearch()",
   };
+  try {
+    const { data, error } = await sb.functions.invoke("pan-find", {
+      body: { aadhaar_number: aadhaar },
+    });
+    if (error) throw error;
+    const outcome = (data?.outcome ?? "error") as "success" | "not_found" | "error";
+    apiResult = {
+      status: outcome,
+      pan: data?.pan ?? null,
+      name: data?.name ?? null,
+      dob: data?.dob ?? null,
+      raw: data?.raw ?? { message: data?.message ?? "no raw" },
+      message: data?.message,
+    };
+  } catch (e) {
+    apiResult = {
+      status: "error",
+      raw: { error: e instanceof Error ? e.message : String(e) },
+      message:
+        "PAN service unreachable. Wallet refunded. If this keeps happening, deploy the `pan-find` edge function and set PAN_API_KEY / PAN_API_SECRET (see SETUP.md).",
+    };
+  }
 
-  // 3) finalize (auto-refund on non-success)
+  // 3) finalize (idempotent — safe on retries; auto-refunds on non-success)
   const { error: finErr } = await sb.rpc("finalize_search", {
     _search_id: searchId,
     _status: apiResult.status,
     _pan: apiResult.pan ?? null,
     _name: apiResult.name ?? null,
     _dob: apiResult.dob ?? null,
-    _raw: apiResult.raw as object,
+    _raw: (apiResult.raw ?? {}) as object,
   });
   if (finErr) throw new Error(finErr.message);
 
   if (apiResult.status === "success") {
     return {
       status: "success",
-      pan: apiResult.pan!,
+      pan: apiResult.pan ?? "",
       name: apiResult.name ?? "",
       dob: apiResult.dob ?? "",
       search_id: searchId,
@@ -230,4 +253,10 @@ export async function adminListAllSearches(limit = 200): Promise<PanSearch[]> {
     .limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []) as PanSearch[];
+}
+
+export async function adminForceRefundSearch(searchId: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("admin_force_refund_search", { _search_id: searchId });
+  if (error) throw new Error(error.message);
 }
