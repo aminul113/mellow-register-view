@@ -52,13 +52,18 @@ function AppLayout() {
           <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center justify-between gap-3 px-3 sm:px-5 sticky top-0 z-10">
             <div className="flex items-center gap-2 min-w-0">
               <SidebarTrigger />
-              <div className="text-sm text-muted-foreground truncate">
-                Welcome, <span className="text-foreground font-semibold">{name}</span>
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              {isAdmin && (
+                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Admin</span>
+              )}
+              <div className="hidden sm:flex items-center gap-2 min-w-0">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                  {(name || "U").slice(0, 1).toUpperCase()}
+                </div>
+                <span className="text-sm font-semibold text-foreground truncate max-w-[160px]">{name}</span>
               </div>
             </div>
-            {isAdmin && (
-              <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Admin</span>
-            )}
           </header>
           <main className="flex-1 p-4 sm:p-5 md:p-6 lg:p-8">
             <Outlet />
