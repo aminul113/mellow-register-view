@@ -323,12 +323,30 @@ grant execute on function public.admin_update_settings(numeric,text,text,text) t
 create or replace function public.admin_find_user(_email text)
 returns table(user_id uuid, name text, email text, balance numeric)
 language sql security definer set search_path = public as $$
-  select p.id, p.name, p.email, coalesce(w.balance, 0)
-  from public.profiles p
-  left join public.wallets w on w.user_id = p.id
+  select
+    u.id,
+    coalesce(p.name, split_part(u.email,'@',1)) as name,
+    u.email,
+    coalesce(w.balance, 0) as balance
+  from auth.users u
+  left join public.profiles p on p.id = u.id
+  left join public.wallets   w on w.user_id = u.id
   where public.has_role(auth.uid(),'admin')
-    and lower(p.email) = lower(_email)
+    and lower(u.email) = lower(trim(_email))
+  limit 1
 $$;
 grant execute on function public.admin_find_user(text) to authenticated;
+
+-- Backfill profiles/wallets for users that signed up before the trigger existed
+insert into public.profiles(id, name, email)
+select u.id,
+       coalesce(u.raw_user_meta_data->>'name', split_part(u.email,'@',1)),
+       u.email
+from auth.users u
+on conflict (id) do update set email = excluded.email;
+
+insert into public.wallets(user_id)
+select id from auth.users
+on conflict do nothing;
 
 -- Done. Sign up with your ADMIN_EMAIL to become admin automatically.
