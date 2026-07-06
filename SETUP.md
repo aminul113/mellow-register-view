@@ -105,6 +105,68 @@ Browser me `http://localhost:8080` refresh karo. Ab register/login screen kholeg
 
 ---
 
+## Step 6.5 — PAN Finder API setup (2 minutes)
+
+PAN Finder feature ke liye ek Supabase **Edge Function** deploy karni hai. Ye function aapke provider API keys ko secure server-side rakhti hai — browser me kabhi expose nahi hoti.
+
+### 6.5a — Provider keys add karo (secure, secret)
+
+1. Supabase dashboard → left sidebar → **Edge Functions**
+2. Upar right corner → **Manage secrets** (ya `Settings → Edge Functions → Secrets`)
+3. **Add new secret** click karke ye do secrets add karo:
+
+| Name | Value |
+|------|-------|
+| `PAN_API_KEY` | Aapki PanManager AI se mili `x-api-key` |
+| `PAN_API_SECRET` | Aapki PanManager AI se mili `x-api-secret` |
+
+> Ye values sirf server par rehti hain. Kabhi bhi `config.ts` me ya code me mat paste karna.
+
+### 6.5b — Edge function deploy karo
+
+Ek baar Supabase CLI install karo (agar nahi hai):
+
+```bash
+npm install -g supabase
+```
+
+Ab project folder me:
+
+```bash
+supabase login
+supabase link --project-ref <YOUR-PROJECT-REF>
+supabase functions deploy pan-find
+```
+
+`<YOUR-PROJECT-REF>` = aapke Supabase project URL ka pehla part (jaise `abcdxyz12345` from `https://abcdxyz12345.supabase.co`).
+
+Deploy successful hone par terminal me green message aayega: `Deployed Function pan-find`.
+
+### 6.5c — Test karo
+
+1. App me login karo
+2. Admin panel → **Users & Wallets** → apne user ko kuch balance credit karo (e.g. ₹100)
+3. Admin → **Settings** → **Search price** set karo (default ₹2, provider ke hisab se ₹70 bhi rakh sakte ho)
+4. **PAN Finder** page kholo → 12-digit Aadhaar enter karo → Search
+5. Success ho to PAN card dikhega + Copy button, fail ho to wallet auto-refund
+
+### Kaise kaam karta hai (security summary)
+
+- Aap **12-digit Aadhaar** enter karte ho
+- Pehle server par wallet debit hota hai (RPC: `debit_wallet_for_search`) — balance kam hua to API call hi nahi hoti, error dikhta hai
+- Fir edge function `pan-find` provider ko call karti hai (keys server par)
+- Success → PAN card dikhta hai, no refund
+- Fail / not found → server-side atomic refund (RPC: `finalize_search`)
+- **Double refund impossible** — RPC pending guard hai, retry safe
+- Full Aadhaar kabhi store nahi hoti — sirf last 4 digits DB me
+- Provider ke wallet fields (`wallet_balance`, `provider_balance`) client tak nahi jaate
+
+### Stuck pending search?
+
+Agar kabhi network partition ki wajah se koi search `pending` me atak jaye (10+ min), Admin → **All Searches** tab me **Force refund** button dikhega. Safe hai — already-refunded rows par no-op ho jayega.
+
+---
+
 ## Step 7 — Deploy (optional)
 
 Apne server / cloud pe host karne ke liye:
@@ -150,6 +212,7 @@ Ye `dist/` folder banayega. Isko in me se kahin bhi deploy kar sakte ho:
 |------|---------------|-----------------|
 | `config.ts` | Supabase URL + key | **Yes** — Step 4 |
 | `database.sql` | Tables + RLS + triggers | **Copy-paste** — Step 5 |
+| `supabase/functions/pan-find/` | PAN provider edge function | **Deploy once** — Step 6.5 |
 | `SETUP.md` | Ye guide | No |
 | `src/**` | App source code | No |
 

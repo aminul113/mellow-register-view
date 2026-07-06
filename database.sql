@@ -244,7 +244,8 @@ begin
     from public.pan_searches where id = _search_id for update;
   if _owner is null then raise exception 'search not found'; end if;
   if _owner <> _uid then raise exception 'forbidden'; end if;
-  if _cur_status <> 'pending' then raise exception 'already finalized'; end if;
+  -- Idempotent: silent no-op if already finalized (prevents double refund on retries).
+  if _cur_status <> 'pending' then return; end if;
 
   if _status = 'success' then
     update public.pan_searches set
@@ -263,6 +264,29 @@ begin
   end if;
 end $$;
 grant execute on function public.finalize_search(uuid,text,text,text,text,jsonb) to authenticated;
+
+-- Admin: force-refund a pending search (network partition safety net).
+-- Idempotent: silently returns if the row is already finalized.
+create or replace function public.admin_force_refund_search(_search_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  _owner uuid;
+  _cost numeric;
+  _cur_status text;
+begin
+  if not public.has_role(auth.uid(),'admin') then raise exception 'forbidden'; end if;
+
+  select user_id, cost, status into _owner, _cost, _cur_status
+    from public.pan_searches where id = _search_id for update;
+  if _owner is null then raise exception 'search not found'; end if;
+  if _cur_status <> 'pending' then return; end if;
+
+  update public.wallets set balance = balance + _cost where user_id = _owner;
+  insert into public.wallet_transactions(user_id, type, amount, note, ref_id)
+    values (_owner, 'refund', _cost, 'Admin force refund (stuck pending)', _search_id);
+  update public.pan_searches set status = 'refunded' where id = _search_id;
+end $$;
+grant execute on function public.admin_force_refund_search(uuid) to authenticated;
 
 -- Admin: credit any user's wallet
 create or replace function public.admin_credit_wallet(_user_id uuid, _amount numeric, _note text)
