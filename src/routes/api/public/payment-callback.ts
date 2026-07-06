@@ -33,6 +33,16 @@ function matches(value: unknown, allowed: readonly unknown[]): boolean {
   return allowed.some((v) => String(v).toLowerCase() === String(value).toLowerCase());
 }
 
+function resolveStatus(raw: unknown, primaryPath: string, fallbacks: readonly string[]): unknown {
+  const primary = getPath(raw, primaryPath);
+  if (primary !== undefined && primary !== null && primary !== "") return primary;
+  for (const p of fallbacks) {
+    const v = getPath(raw, p);
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
+}
+
 async function extractOrderId(request: Request): Promise<string> {
   const url = new URL(request.url);
   let id = url.searchParams.get("order_id") || url.searchParams.get("orderId") || "";
@@ -70,6 +80,8 @@ async function handle(request: Request) {
   if (!PAYMENT_API_URL || !PAYMENT_USER_TOKEN) return ok({ ok: false, reason: "payment not configured" });
 
   const { FIELDS, STATUS_PATH, RESPONSE } = APP_CONFIG.PAYMENT;
+  const statusFallbacks = (RESPONSE as { statusFallbackPaths?: readonly string[] }).statusFallbackPaths ?? [];
+  const failureValues = (RESPONSE as { failureValues?: readonly unknown[] }).failureValues ?? [];
   const form = new URLSearchParams();
   form.set(FIELDS.token, PAYMENT_USER_TOKEN);
   form.set(FIELDS.orderId, orderId);
@@ -90,8 +102,9 @@ async function handle(request: Request) {
     return ok({ ok: false, reason: "provider unreachable", detail: String(e) });
   }
 
-  const txnStatus = getPath(providerRaw, RESPONSE.statusPath);
+  const txnStatus = resolveStatus(providerRaw, RESPONSE.statusPath, statusFallbacks);
   const utr = getPath(providerRaw, RESPONSE.utrPath);
+  console.log("payment-callback", { order_id: orderId, txnStatus, raw: providerRaw });
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -108,11 +121,16 @@ async function handle(request: Request) {
   if (matches(txnStatus, RESPONSE.pendingValues)) {
     return ok({ ok: true, status: "pending" });
   }
-  await admin.rpc("mark_payment_failed", {
-    _order_id: orderId,
-    _raw: (providerRaw ?? {}) as object,
-  });
-  return ok({ ok: true, status: "failed" });
+  // Only mark failed on an explicit failure value; treat unknown as pending
+  // so a late success callback (or the return-page poll) can still credit.
+  if (matches(txnStatus, failureValues)) {
+    await admin.rpc("mark_payment_failed", {
+      _order_id: orderId,
+      _raw: (providerRaw ?? {}) as object,
+    });
+    return ok({ ok: true, status: "failed" });
+  }
+  return ok({ ok: true, status: "pending", reason: "unknown status", txnStatus });
 }
 
 export const Route = createFileRoute("/api/public/payment-callback")({

@@ -27,6 +27,16 @@ function matches(value: unknown, allowed: readonly unknown[]): boolean {
   return allowed.some((v) => String(v).toLowerCase() === String(value).toLowerCase());
 }
 
+function resolveStatus(raw: unknown, primaryPath: string, fallbacks: readonly string[]): unknown {
+  const primary = getPath(raw, primaryPath);
+  if (primary !== undefined && primary !== null && primary !== "") return primary;
+  for (const p of fallbacks) {
+    const v = getPath(raw, p);
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
+}
+
 export const Route = createFileRoute("/api/payment-verify")({
   server: {
     handlers: {
@@ -41,6 +51,8 @@ export const Route = createFileRoute("/api/payment-verify")({
         const authHeader = request.headers.get("authorization") ?? "";
         const token = authHeader.replace(/^Bearer\s+/i, "");
         if (!token) return json({ outcome: "error", message: "Unauthorized" }, 401);
+
+        const debug = new URL(request.url).searchParams.get("debug") === "1";
 
         const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
         const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
@@ -72,9 +84,9 @@ export const Route = createFileRoute("/api/payment-verify")({
         if (orderRow.status === "success") {
           return json({ outcome: "success", status: "success", amount: Number(orderRow.amount), order_id: orderId, already_credited: true });
         }
-        if (orderRow.status === "failed") {
-          return json({ outcome: "success", status: "failed", order_id: orderId });
-        }
+        // NOTE: We intentionally do NOT short-circuit on status === "failed" —
+        // a previous verify call may have prematurely marked an order failed
+        // while the gateway was still processing. Re-check with the provider.
 
         // --- Call provider status API ---
         const PAYMENT_API_URL = (process.env.PAYMENT_API_URL || "").replace(/\/+$/, "");
@@ -85,6 +97,8 @@ export const Route = createFileRoute("/api/payment-verify")({
         }
 
         const { FIELDS, STATUS_PATH, RESPONSE } = APP_CONFIG.PAYMENT;
+        const statusFallbacks = (RESPONSE as { statusFallbackPaths?: readonly string[] }).statusFallbackPaths ?? [];
+        const failureValues = (RESPONSE as { failureValues?: readonly unknown[] }).failureValues ?? [];
         const form = new URLSearchParams();
         form.set(FIELDS.token, PAYMENT_USER_TOKEN);
         form.set(FIELDS.orderId, orderId);
@@ -105,10 +119,15 @@ export const Route = createFileRoute("/api/payment-verify")({
           return json({ outcome: "error", message: "Provider unreachable", detail: String(e) }, 502);
         }
 
-        const txnStatus = getPath(providerRaw, RESPONSE.statusPath);
+        const txnStatus = resolveStatus(providerRaw, RESPONSE.statusPath, statusFallbacks);
         const utr = getPath(providerRaw, RESPONSE.utrPath);
 
-        console.log("payment-verify", { order_id: orderId, txnStatus, has_utr: !!utr });
+        console.log("payment-verify", {
+          order_id: orderId,
+          txnStatus,
+          has_utr: !!utr,
+          raw: providerRaw,
+        });
 
         if (matches(txnStatus, RESPONSE.successValues)) {
           const { error: credErr } = await sbUser.rpc("credit_wallet_for_payment", {
@@ -123,15 +142,28 @@ export const Route = createFileRoute("/api/payment-verify")({
         }
 
         if (matches(txnStatus, RESPONSE.pendingValues)) {
-          return json({ outcome: "success", status: "pending", order_id: orderId });
+          return json({ outcome: "success", status: "pending", order_id: orderId, ...(debug ? { raw: providerRaw, resolved_status: txnStatus } : {}) });
         }
 
-        // Anything else → failed
-        await sbUser.rpc("mark_payment_failed", {
-          _order_id: orderId,
-          _raw: (providerRaw ?? {}) as object,
+        // Only mark failed when the provider EXPLICITLY returned a known
+        // failure value. Unknown / empty / late responses stay pending so
+        // the return page keeps polling and the webhook can still resolve
+        // the order.
+        if (matches(txnStatus, failureValues)) {
+          await sbUser.rpc("mark_payment_failed", {
+            _order_id: orderId,
+            _raw: (providerRaw ?? {}) as object,
+          });
+          return json({ outcome: "success", status: "failed", order_id: orderId, ...(debug ? { raw: providerRaw, resolved_status: txnStatus } : {}) });
+        }
+
+        return json({
+          outcome: "success",
+          status: "pending",
+          order_id: orderId,
+          message: "Awaiting gateway confirmation",
+          ...(debug ? { raw: providerRaw, resolved_status: txnStatus } : {}),
         });
-        return json({ outcome: "success", status: "failed", order_id: orderId, raw: providerRaw });
       },
     },
   },

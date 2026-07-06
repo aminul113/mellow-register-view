@@ -82,8 +82,25 @@ export const APP_CONFIG = {
       statusPath: "result.txnStatus",       // "SUCCESS" | "PENDING" | "FAILURE"
       utrPath: "result.utr",
       amountPath: "result.amount",
-      successValues: ["SUCCESS", "success"],
-      pendingValues: ["PENDING", "pending"],
+      // Fallback paths tried in order if the primary statusPath is undefined.
+      statusFallbackPaths: [
+        "status", "data.status", "result.status", "txnStatus",
+        "payment_status", "result.payment_status", "data.txnStatus",
+      ],
+      successValues: [
+        "SUCCESS", "success", "COMPLETED", "completed",
+        "PAID", "paid", "CAPTURED", "captured",
+        1, "1", true, "true",
+      ],
+      pendingValues: [
+        "PENDING", "pending", "INITIATED", "initiated",
+        "PROCESSING", "processing", "IN_PROGRESS", "in_progress",
+      ],
+      failureValues: [
+        "FAILURE", "failure", "FAILED", "failed",
+        "CANCELLED", "cancelled", "CANCELED", "canceled",
+        "EXPIRED", "expired", "DECLINED", "declined", "REJECTED", "rejected",
+      ],
     },
   },
 };

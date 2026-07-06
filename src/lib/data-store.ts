@@ -340,14 +340,16 @@ export type VerifyPaymentResult = {
   status: "success" | "pending" | "failed";
   amount?: number;
   message?: string;
+  raw?: unknown;
+  resolved_status?: unknown;
 };
 export async function verifyPayment(orderId: string): Promise<VerifyPaymentResult> {
-  const { data, error } = await callServer("/api/payment-verify", { order_id: orderId });
+  const { data, error } = await callServer("/api/payment-verify?debug=1", { order_id: orderId });
   if (error) return { status: "failed", message: error.message };
-  const d = (data ?? {}) as { status?: string; amount?: number; message?: string };
-  if (d.status === "success") return { status: "success", amount: d.amount };
-  if (d.status === "pending") return { status: "pending" };
-  return { status: "failed", message: d.message };
+  const d = (data ?? {}) as { status?: string; amount?: number; message?: string; raw?: unknown; resolved_status?: unknown };
+  if (d.status === "success") return { status: "success", amount: d.amount, raw: d.raw };
+  if (d.status === "pending") return { status: "pending", message: d.message, raw: d.raw, resolved_status: d.resolved_status };
+  return { status: "failed", message: d.message, raw: d.raw, resolved_status: d.resolved_status };
 }
 
 export type PaymentHealth = { status: "ready" | "missing_secrets" | "error"; message: string };
