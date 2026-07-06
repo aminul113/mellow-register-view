@@ -4,7 +4,6 @@ import { z } from "zod";
 import { AuthLayout } from "@/components/AuthLayout";
 import { AuthField, AuthButton } from "@/components/AuthField";
 import { registerAccount } from "@/lib/auth-store";
-import { getSupabaseConfig } from "@/lib/supabase-config";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -35,10 +34,6 @@ function RegisterPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (!getSupabaseConfig()) {
-      navigate({ to: "/setup" });
-      return;
-    }
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
       const errs: Record<string, string> = {};

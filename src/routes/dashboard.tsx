@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getCurrentAccount, logout } from "@/lib/auth-store";
-import { getSupabaseConfig } from "@/lib/supabase-config";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -19,10 +18,6 @@ function DashboardPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!getSupabaseConfig()) {
-      navigate({ to: "/setup" });
-      return;
-    }
     getCurrentAccount().then((a) => {
       if (!a) {
         navigate({ to: "/login" });
