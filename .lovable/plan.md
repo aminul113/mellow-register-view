@@ -1,54 +1,35 @@
-## Add Money — Popup Flow + Real-time Credit + Webhook
+## Issue
 
-### Goal
-Wallet page pe ek "Add Money" button ho. Click karte hi ek **beautiful modal popup** khule jisme amount fill karne ka option ho (quick chips + custom input). "Pay Now" click karte hi gateway pe redirect ho, payment complete hote hi wallet **real-time** credit ho jaye. Buyers ke liye ek fixed **webhook URL** bhi expose ho jo unke gateway dashboard me paste kar sakein.
+Error: `Could not find the function public.create_payment_order(_amount) in the schema cache`
 
-### UI Changes (`src/routes/app.wallet.tsx`)
-1. Current inline "Add Money" section hata ke uski jagah ek prominent **"+ Add Money"** button (gradient, primary).
-2. Button click → shadcn `<Dialog>` popup khule with:
-   - Header: "Add Money to Wallet" + subtitle
-   - Current balance chip
-   - **Quick amount chips**: ₹100, ₹200, ₹500, ₹1000, ₹2000, ₹5000 (selected state highlight)
-   - **Custom amount** input (₹ prefix, min ₹10, max ₹100000, validation)
-   - Big **"Pay ₹XXX Now"** CTA button (disabled jab tak valid amount na ho)
-   - Loading state jab order create ho raha ho
-   - Footer: "Secured by [Provider]" small text
-3. Design tokens use honge (no hardcoded colors), dark/light dono me kaam kare, mobile responsive.
+Vercel env vars sahi hain — problem alag hai. Aapke Supabase database mein ye 2 functions aur `payment_orders` table abhi tak create nahi hui:
+- `public.create_payment_order(_amount numeric)`
+- `public.mark_payment_failed(_order_id, _raw)`
+- `public.payment_orders` table (RLS + grants ke saath)
 
-### Real-time Wallet Credit
-- Payment return page (`app.payment-return.tsx`) already poll karta hai. Additionally wallet page pe **Supabase Realtime subscription** add karenge `wallet_transactions` table pe — jaise hi naya credit row insert ho, balance instantly update ho jayega (no refresh needed).
-- Toast notification: "₹XXX credited to your wallet 🎉"
+Ye SQL `database.sql` file mein already likhi hui hai, bas Supabase par run nahi hui.
 
-### Webhook for Buyers
-- Endpoint already exists: `/api/public/payment-callback` (server-to-server, no auth, HMAC-verified).
-- Wallet page pe (ya settings me) ek chhota **"Webhook Info"** collapsible add karenge jo buyer ke deploy hone ke baad ye dikhaye:
-  ```
-  Webhook URL: https://<your-domain>/api/public/payment-callback
-  Method: POST
-  Content-Type: application/x-www-form-urlencoded
-  Expected fields: order_id, status, txn_id, amount, signature
-  Signature: HMAC-SHA256(order_id|status|amount, PAYMENT_API_SECRET)
-  ```
-- Ye info `DEPLOYMENT.md` me bhi add hogi with RapidX-specific paste instructions.
+## Fix (2 options — same result)
 
-### Config (buyer-friendly, `config.ts`)
-Already pluggable hai. Confirm karenge ye fields present hain:
-- `PAYMENT.provider_name` (display ke liye — "Secured by RapidX")
-- `PAYMENT.min_amount` / `PAYMENT.max_amount` / `PAYMENT.quick_amounts[]`
-- `PAYMENT.currency_symbol` ("₹")
-- Webhook field mapping (buyer apne gateway ke hisab se change kar sake)
+### Option A — Supabase SQL Editor (manual, 30 sec)
+1. Supabase Dashboard → SQL Editor → New Query
+2. Project ki `database.sql` file ka **payment section** paste karein (table + RPCs + grants + RLS)
+3. Run → success
 
-### Files to Change
-- `src/routes/app.wallet.tsx` — inline form hatao, "Add Money" button + `<AddMoneyDialog />` component
-- `src/components/wallet/AddMoneyDialog.tsx` — new file (popup UI)
-- `src/routes/app.wallet.tsx` — add realtime subscription hook
-- `config.ts` — expose `quick_amounts`, `min_amount`, `max_amount`, `provider_name`
-- `DEPLOYMENT.md` — add "Webhook Setup" section with exact URL pattern + RapidX paste steps
-- `src/routes/api/public/payment-callback.ts` — verify HMAC signature logic present hai (add if missing)
+### Option B — Migration tool (recommended)
+Main `payment_orders` table + dono RPC functions ek migration ke through create kar dunga. Isse aap ek click mein approve karke apply kar sakte ho, koi manual copy-paste nahi.
 
-### No Changes
-- DB schema (already done in prior turn)
-- Payment create/verify server routes (already done)
-- Auth flow
+Migration mein hoga:
+- `CREATE TABLE public.payment_orders` (id, user_id, order_id unique, amount, status, provider_order_id, raw jsonb, timestamps)
+- GRANTs: `authenticated` (select/insert/update), `service_role` (all)
+- RLS ON + policy: user apni orders dekh sake
+- `create_payment_order(_amount numeric)` — security definer, returns `order_id`
+- `mark_payment_failed(_order_id text, _raw jsonb)` — security definer
+- `credit_wallet_from_order(_order_id text)` — callback verify ke baad wallet credit (idempotent)
 
-Approve karo to build mode me implement kar deta hun.
+Iske baad "Add Money → Pay Now" turant chal jayega, aur wallet realtime credit hoga.
+
+## Recommendation
+**Option B** — main migration bana deta hoon, aap approve karo, done.
+
+Approve karein toh proceed karun?
