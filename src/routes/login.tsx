@@ -3,7 +3,8 @@ import { useState } from "react";
 import { z } from "zod";
 import { AuthLayout } from "@/components/AuthLayout";
 import { AuthField, AuthButton } from "@/components/AuthField";
-import { login } from "@/lib/auth-store";
+import { loginAccount } from "@/lib/auth-store";
+import { getSupabaseConfig } from "@/lib/supabase-config";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -33,6 +34,10 @@ function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+    if (!getSupabaseConfig()) {
+      navigate({ to: "/setup" });
+      return;
+    }
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
       const errs: Record<string, string> = {};
@@ -42,14 +47,14 @@ function LoginPage() {
     }
     setErrors({});
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    const account = login(parsed.data.email, parsed.data.password);
-    setLoading(false);
-    if (!account) {
-      setFormError("Invalid email or password. If you're new, please register.");
-      return;
+    try {
+      await loginAccount(parsed.data.email, parsed.data.password);
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(false);
     }
-    navigate({ to: "/dashboard" });
   }
 
   return (
