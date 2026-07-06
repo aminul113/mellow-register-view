@@ -35,6 +35,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
+  --color-left-blob: var(--left-blob);
+  --color-left-dot: var(--left-dot);
   --font-hand: "Caveat", cursive;
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -74,6 +76,8 @@
   --primary: oklch(0.28 0.06 155);
   --primary-hover: oklch(0.34 0.07 155);
   --primary-foreground: oklch(0.99 0.005 155);
+  --left-blob: oklch(0.42 0.08 170);
+  --left-dot: oklch(0.42 0.08 170 / 60%);
   --secondary: oklch(0.94 0.05 155);
   --secondary-foreground: oklch(0.28 0.06 155);
   --muted: oklch(0.968 0.007 247.896);
