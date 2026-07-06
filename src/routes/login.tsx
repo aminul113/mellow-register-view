@@ -44,7 +44,7 @@ function LoginPage() {
     setLoading(true);
     try {
       await loginAccount(parsed.data.email, parsed.data.password);
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/app" });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Login failed");
     } finally {

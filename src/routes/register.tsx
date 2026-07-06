@@ -45,7 +45,7 @@ function RegisterPage() {
     setLoading(true);
     try {
       await registerAccount(parsed.data.name, parsed.data.email, parsed.data.password);
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/app" });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Registration failed");
     } finally {
