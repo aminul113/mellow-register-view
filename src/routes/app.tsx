@@ -33,15 +33,29 @@ function AppLayout() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen bg-background p-6 space-y-4">
-        <div className="h-14 rounded-xl bg-primary/10 animate-pulse" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
-          <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
-          <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar isAdmin={false} onLogout={() => {}} />
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center justify-between gap-3 px-3 sm:px-5 sticky top-0 z-10">
+              <div className="flex items-center gap-2 min-w-0">
+                <SidebarTrigger />
+              </div>
+              <div className="h-8 w-32 rounded-full bg-primary/10 animate-pulse" />
+            </header>
+            <main className="flex-1 p-4 sm:p-5 md:p-6 lg:p-8">
+              <div className="max-w-7xl mx-auto w-full space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+                  <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+                  <div className="h-32 rounded-2xl bg-primary/10 animate-pulse" />
+                </div>
+                <div className="h-64 rounded-2xl bg-primary/10 animate-pulse" />
+              </div>
+            </main>
+          </div>
         </div>
-        <div className="h-64 rounded-2xl bg-primary/10 animate-pulse" />
-      </div>
+      </SidebarProvider>
     );
   }
 
