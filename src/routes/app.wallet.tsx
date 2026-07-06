@@ -29,7 +29,7 @@ function WalletPage() {
   const spent = txs.filter((t) => t.type === "debit").reduce((a, b) => a + Number(b.amount), 0);
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto w-full">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">Wallet</h1>
         <p className="text-sm text-muted-foreground">Your balance and transactions.</p>
