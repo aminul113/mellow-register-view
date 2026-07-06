@@ -387,4 +387,18 @@ insert into public.wallets(user_id)
 select id from auth.users
 on conflict do nothing;
 
+-- ---------- self-heal: retro-grant admin role -------------------------------
+-- If a buyer added their email to admin_emails AFTER signing up (very common
+-- when deploying to Vercel/Netlify and forgetting to edit line 20 first), the
+-- signup trigger has already run without granting admin. Re-running this SQL
+-- fixes that: every existing auth user whose email is in admin_emails gets
+-- the admin role. Idempotent — safe to run any number of times.
+insert into public.user_roles(user_id, role)
+select u.id, 'admin'::public.app_role
+from auth.users u
+join public.admin_emails a on lower(a.email) = lower(u.email)
+on conflict (user_id, role) do nothing;
+
 -- Done. Sign up with your ADMIN_EMAIL to become admin automatically.
+-- Already signed up before adding your email? Just insert into admin_emails
+-- and re-run this whole file — the block above will grant admin retroactively.
