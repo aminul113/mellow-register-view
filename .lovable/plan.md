@@ -1,48 +1,79 @@
-## Kyun Admin show nahi ho raha
+## Plan: PAN Finder issue fix, sellable-source safe
 
-Aap ne Vercel me `VITE_ADMIN_EMAIL` set kar diya — lekin admin role **frontend se decide nahi hoti**. Role Supabase database me `user_roles` table me store hoti hai, aur ye ek DB trigger deta hai jab koi user signup karta hai — trigger check karta hai ki us user ka email `admin_emails` table me hai ya nahi.
+Likely issue: `PAN_API_KEY` / `PAN_API_SECRET` must be added in the buyer's own Supabase project under Edge Function secrets, and the `pan-find` function must be deployed to that same Supabase project. If keys were added in Vercel env vars, `config.ts`, `.env`, or a different Supabase project, the app will still show this error.
 
-`VITE_ADMIN_EMAIL` sirf `config.ts` ka fallback hai (UI/branding side), Supabase trigger use nahi karta. Isliye:
+### What I will change
 
-- Agar `database.sql` chalate waqt line 20 pe `'admin@example.com'` ko apne email se **replace nahi kiya**, to `admin_emails` table me aapka email nahi hai → trigger admin role nahi deta.
-- Agar aap apne admin email se signup **pehle** kar chuke ho aur baad me email add kiya, tab bhi trigger dobara nahi chalega — pehle wale user ke liye role manually daalna padega.
+1. **Keep source-code selling safe**
+   - No PAN key or secret will be added to the repo.
+   - No PAN key/secret will be added to `config.ts`, `.env.example`, frontend code, or Vercel env docs.
+   - Each buyer will add their own keys only in Supabase Edge Function secrets.
 
-## Fix karne ka plan (2 chhoti cheezein)
+2. **Improve the PAN error message in the app**
+   - Replace the generic `PAN service unreachable` message with clearer causes:
+     - Edge function not deployed
+     - PAN secrets missing/wrong place
+     - Wrong Supabase project linked
+     - Function/network/provider error
+   - Still auto-refund wallet as it does now.
 
-### Part A — Aap ke Supabase pe abhi ka fix (1 SQL query)
+3. **Add buyer-friendly setup docs**
+   - Update `SETUP.md` and `README.md` to say clearly:
+     - Do not put `PAN_API_KEY` / `PAN_API_SECRET` in Vercel env vars.
+     - Do not put them in `config.ts`.
+     - Put them only in Supabase Dashboard → Edge Functions → Secrets.
+     - Then deploy/redeploy `pan-find` to the same Supabase project.
 
-Supabase Dashboard → SQL Editor me ye paste karke Run karo (email apna daalo — wahi jo Vercel ke `VITE_ADMIN_EMAIL` me hai aur jis se aap login karte ho):
+4. **Add a safe health-check guide**
+   - Add copy-paste commands/steps for buyers:
+     - Confirm `pan-find` exists in Supabase Edge Functions.
+     - Confirm secrets names are exactly `PAN_API_KEY` and `PAN_API_SECRET`.
+     - Redeploy function after setting secrets.
+   - No command will print or expose the secret values.
 
-```sql
--- 1) admin_emails me apna email daalo (agar pehle se hai to skip ho jayega)
-insert into public.admin_emails(email) values ('YOUR-EMAIL@example.com')
-on conflict (email) do nothing;
+5. **Optional app-side diagnostic helper**
+   - Add an Admin Panel status note/button that tests only whether the edge function responds.
+   - It will never show secret values.
+   - It will only display statuses like `Function missing`, `Secrets missing`, `Provider error`, or `Ready`.
 
--- 2) Agar aap pehle se signup kar chuke ho, admin role bhi manually daal do
-insert into public.user_roles(user_id, role)
-select u.id, 'admin'::public.app_role
-from auth.users u
-where lower(u.email) = lower('YOUR-EMAIL@example.com')
-on conflict (user_id, role) do nothing;
+### Technical details
+
+Current flow:
+
+```text
+PAN Finder page
+→ debit_wallet_for_search RPC
+→ Supabase Edge Function: pan-find
+→ PanManager API using PAN_API_KEY / PAN_API_SECRET
+→ finalize_search RPC
+→ success OR refund
 ```
 
-Iske baad app me **logout → login** karo — sidebar me "Admin Panel" aa jayega.
+The current pasted error means the browser call to `pan-find` failed before a valid success/not-found response was returned. Most common causes:
 
-### Part B — Future buyers ke liye ek chhoti code change
+```text
+1. pan-find edge function not deployed
+2. PAN_API_KEY / PAN_API_SECRET added in wrong place
+3. secrets added to different Supabase project
+4. function deployed before secrets and not redeployed/refreshed
+5. provider credentials invalid or provider unavailable
+```
 
-Taaki naye buyer ko bhi ye issue na aaye, main `database.sql` me trigger ko thoda smart bana dunga: `admin_emails` table ke saath-saath ek Supabase secret `ADMIN_EMAIL` (agar set ho) ko bhi check karega. Fir buyer sirf 1 jagah admin email set kare — Supabase Dashboard → Project Settings → Database → Custom config me `app.admin_email` set karne ka simple option, ya seedhe SQL me insert.
+### Immediate fix for your current deployment
 
-Files jo edit hongi:
+In your Supabase project connected to this deployed app:
 
-- `database.sql` — trigger me `admin_emails` check ke saath fallback jodna, aur SETUP.md me clearer 1-line instruction.
-- `SETUP.md` — Vercel deploy ke baad "Admin Panel dikhane ke liye ye SQL chalao" wala box add karna (upar wali SQL).
-- `README.md` — env vars table me note: "VITE_ADMIN_EMAIL sirf UI ke liye. Real admin role ke liye `admin_emails` table me email daalna zaroori hai — SETUP.md dekhein."
+```text
+Supabase Dashboard
+→ Edge Functions
+→ Manage secrets
+→ Add exactly:
+   PAN_API_KEY
+   PAN_API_SECRET
+→ Edge Functions
+→ confirm pan-find exists
+→ redeploy pan-find if needed
+→ logout/login in app and test again
+```
 
-### Jo change NAHI hoga
-
-- Koi business logic / RLS / edge function / branding / swal / skeleton kuch nahi.
-- Frontend me role check waise ka waisa hi rahega (`isCurrentUserAdmin` → `user_roles` table).
-
-## Aap ka action abhi
-
-Part A wali SQL turant chalao — 30 second me admin dikhne lagega. Part B main tabhi implement karunga jab aap "Approve plan" karoge (source code sell karne ke liye future-proof). but dhyan rakho ki a source code sell karunga to oncer per user ka hona chahiye 
+If you approve, I’ll update the app/docs so this is clear for every buyer and easier to debug without exposing anyone’s PAN API keys.
