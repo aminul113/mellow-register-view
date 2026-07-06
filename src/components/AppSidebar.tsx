@@ -19,6 +19,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useBranding } from "@/lib/branding";
 
 type Item = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -33,15 +34,20 @@ const items: Item[] = [
 export function AppSidebar({ isAdmin, onLogout }: { isAdmin: boolean; onLogout: () => void }) {
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (p: string) => (p === "/app" ? currentPath === "/app" : currentPath.startsWith(p));
+  const brand = useBranding();
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="border-b border-sidebar-border/40">
         <div className="flex items-center gap-2 px-2 py-3 font-bold tracking-wide text-sidebar-foreground">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-            <ShieldCheck className="h-4 w-4" />
+          <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
+            {brand.logoUrl ? (
+              <img src={brand.logoUrl} alt={brand.name} className="h-full w-full object-cover" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
           </span>
-          <span className="truncate group-data-[collapsible=icon]:hidden">PANME SHOP</span>
+          <span className="truncate group-data-[collapsible=icon]:hidden">{brand.name}</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="px-1.5 py-3">

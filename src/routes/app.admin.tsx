@@ -15,6 +15,7 @@ import {
   type PanSearch,
 } from "@/lib/data-store";
 import { StatusPill } from "./app.index";
+import { useRefreshBranding } from "@/lib/branding";
 
 export const Route = createFileRoute("/app/admin")({
   component: AdminPage,
@@ -190,6 +191,7 @@ function UsersTab() {
 function SettingsTab() {
   const [s, setS] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const refreshBranding = useRefreshBranding();
   useEffect(() => { getSettings().then(setS); }, []);
 
   async function save() {
@@ -198,25 +200,108 @@ function SettingsTab() {
     try {
       await adminUpdateSettings(s);
       toast.success("Settings saved");
+      refreshBranding();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Save failed"); }
     finally { setSaving(false); }
   }
 
+  async function pickImage(kind: "logo" | "favicon") {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = kind === "favicon" ? "image/png,image/x-icon,image/svg+xml,image/jpeg" : "image/*";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file || !s) return;
+      const maxKb = kind === "favicon" ? 100 : 400;
+      if (file.size > maxKb * 1024) {
+        toast.error(`Image too large. Keep under ${maxKb} KB.`);
+        return;
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(file);
+      });
+      setS(kind === "logo" ? { ...s, logo_url: dataUrl } : { ...s, favicon_url: dataUrl });
+      toast.success(`${kind === "logo" ? "Logo" : "Favicon"} loaded — click Save settings.`);
+    };
+    input.click();
+  }
+
   if (!s) return <div className="text-sm text-muted-foreground">Loading…</div>;
   return (
-    <div className="rounded-2xl border bg-card p-5 space-y-4 max-w-xl">
-      <SField label="Search price (₹)"
-        value={String(s.search_price)}
-        onChange={(v) => setS({ ...s, search_price: Number(v) || 0 })}
-        type="number" />
-      <SField label="Support phone" value={s.support_phone} onChange={(v) => setS({ ...s, support_phone: v })} />
-      <SField label="Support WhatsApp (with country code, e.g. 919999999999)"
-        value={s.support_whatsapp} onChange={(v) => setS({ ...s, support_whatsapp: v })} />
-      <SField label="Support email" value={s.support_email} onChange={(v) => setS({ ...s, support_email: v })} type="email" />
+    <div className="space-y-4 max-w-3xl">
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div>
+          <div className="font-semibold">Branding</div>
+          <p className="text-xs text-muted-foreground">Website name, logo aur favicon yahan se set karein — sab pages par apne aap update ho jayega.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SField label="Website name" value={s.brand_name} onChange={(v) => setS({ ...s, brand_name: v })} />
+          <SField label="Tagline (short)" value={s.brand_tagline} onChange={(v) => setS({ ...s, brand_tagline: v })} />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <BrandAsset
+            label="Logo"
+            hint="Square PNG/SVG, under 400 KB."
+            url={s.logo_url}
+            onPick={() => pickImage("logo")}
+            onClear={() => setS({ ...s, logo_url: "" })}
+          />
+          <BrandAsset
+            label="Favicon"
+            hint="Square PNG/ICO/SVG, under 100 KB."
+            url={s.favicon_url}
+            onPick={() => pickImage("favicon")}
+            onClear={() => setS({ ...s, favicon_url: "" })}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5 space-y-4">
+        <div className="font-semibold">Pricing & Support</div>
+        <SField label="Search price (₹)"
+          value={String(s.search_price)}
+          onChange={(v) => setS({ ...s, search_price: Number(v) || 0 })}
+          type="number" />
+        <SField label="Support phone" value={s.support_phone} onChange={(v) => setS({ ...s, support_phone: v })} />
+        <SField label="Support WhatsApp (with country code, e.g. 919999999999)"
+          value={s.support_whatsapp} onChange={(v) => setS({ ...s, support_whatsapp: v })} />
+        <SField label="Support email" value={s.support_email} onChange={(v) => setS({ ...s, support_email: v })} type="email" />
+      </div>
+
       <button onClick={save} disabled={saving}
-        className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm hover:bg-primary/90 disabled:opacity-60">
+        className="rounded-lg bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 shadow">
         {saving ? "Saving…" : "Save settings"}
       </button>
+    </div>
+  );
+}
+
+function BrandAsset({ label, hint, url, onPick, onClear }: { label: string; hint: string; url: string; onPick: () => void; onClear: () => void }) {
+  return (
+    <div className="rounded-xl border bg-background p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium">{label}</div>
+          <div className="text-[11px] text-muted-foreground">{hint}</div>
+        </div>
+        <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted">
+          {url ? <img src={url} alt={label} className="h-full w-full object-cover" /> : <span className="text-[10px] text-muted-foreground">None</span>}
+        </div>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={onPick} className="rounded-lg border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted/40">
+          {url ? "Change" : "Upload"}
+        </button>
+        {url && (
+          <button type="button" onClick={onClear} className="rounded-lg border border-destructive/30 bg-destructive/5 text-destructive px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10">
+            Remove
+          </button>
+        )}
+      </div>
     </div>
   );
 }

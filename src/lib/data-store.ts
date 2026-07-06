@@ -6,6 +6,10 @@ export type AppSettings = {
   support_phone: string;
   support_whatsapp: string;
   support_email: string;
+  brand_name: string;
+  brand_tagline: string;
+  logo_url: string;
+  favicon_url: string;
 };
 
 export type Wallet = { balance: number };
@@ -43,7 +47,7 @@ export async function getSettings(): Promise<AppSettings> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("app_settings")
-    .select("search_price,support_phone,support_whatsapp,support_email")
+    .select("search_price,support_phone,support_whatsapp,support_email,brand_name,brand_tagline,logo_url,favicon_url")
     .eq("id", 1)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -53,8 +57,12 @@ export async function getSettings(): Promise<AppSettings> {
       support_phone: "",
       support_whatsapp: "",
       support_email: "",
+      brand_name: "PANME SHOP",
+      brand_tagline: "Find your PAN card instantly",
+      logo_url: "",
+      favicon_url: "",
     }
-  );
+  ) as AppSettings;
 }
 
 // ---------- wallet ----------
@@ -251,6 +259,10 @@ export async function adminUpdateSettings(s: {
   support_phone: string;
   support_whatsapp: string;
   support_email: string;
+  brand_name: string;
+  brand_tagline: string;
+  logo_url: string;
+  favicon_url: string;
 }) {
   const sb = requireSupabase();
   const { error } = await sb.rpc("admin_update_settings", {
@@ -258,6 +270,10 @@ export async function adminUpdateSettings(s: {
     _phone: s.support_phone,
     _whatsapp: s.support_whatsapp,
     _email: s.support_email,
+    _brand_name: s.brand_name,
+    _brand_tagline: s.brand_tagline,
+    _logo_url: s.logo_url,
+    _favicon_url: s.favicon_url,
   });
   if (error) throw new Error(error.message);
 }

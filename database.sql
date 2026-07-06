@@ -79,6 +79,10 @@ create table if not exists public.app_settings (
   updated_at timestamptz not null default now(),
   constraint app_settings_singleton check (id = 1)
 );
+alter table public.app_settings add column if not exists brand_name text not null default 'PANME SHOP';
+alter table public.app_settings add column if not exists brand_tagline text not null default 'Find your PAN card instantly';
+alter table public.app_settings add column if not exists logo_url text not null default '';
+alter table public.app_settings add column if not exists favicon_url text not null default '';
 grant select on public.app_settings to authenticated, anon;
 grant all on public.app_settings to service_role;
 alter table public.app_settings enable row level security;
@@ -305,7 +309,9 @@ grant execute on function public.admin_credit_wallet(uuid,numeric,text) to authe
 
 -- Admin: update settings
 create or replace function public.admin_update_settings(
-  _price numeric, _phone text, _whatsapp text, _email text
+  _price numeric, _phone text, _whatsapp text, _email text,
+  _brand_name text default null, _brand_tagline text default null,
+  _logo_url text default null, _favicon_url text default null
 ) returns void language plpgsql security definer set search_path = public as $$
 begin
   if not public.has_role(auth.uid(),'admin') then raise exception 'forbidden'; end if;
@@ -314,10 +320,18 @@ begin
         support_phone = coalesce(_phone, support_phone),
         support_whatsapp = coalesce(_whatsapp, support_whatsapp),
         support_email = coalesce(_email, support_email),
+        brand_name = coalesce(nullif(trim(_brand_name), ''), brand_name),
+        brand_tagline = coalesce(_brand_tagline, brand_tagline),
+        logo_url = coalesce(_logo_url, logo_url),
+        favicon_url = coalesce(_favicon_url, favicon_url),
         updated_at = now()
     where id = 1;
 end $$;
-grant execute on function public.admin_update_settings(numeric,text,text,text) to authenticated;
+grant execute on function public.admin_update_settings(numeric,text,text,text,text,text,text,text) to authenticated;
+-- drop old signature if it exists from previous installs
+do $$ begin
+  drop function if exists public.admin_update_settings(numeric,text,text,text);
+exception when others then null; end $$;
 
 -- Admin: find a user by email (returns id + name)
 create or replace function public.admin_find_user(_email text)
