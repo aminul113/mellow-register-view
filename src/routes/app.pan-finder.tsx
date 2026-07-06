@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Search, CheckCircle2, XCircle, Loader2, CreditCard, Copy, Wallet, MessageCircle, Phone, Mail } from "lucide-react";
-import { toast } from "sonner";
 import { runPanSearch, getSettings, type PanSearchResult, type AppSettings } from "@/lib/data-store";
+import { swalOk, swalError, swalInfo } from "@/lib/swal";
 
 export const Route = createFileRoute("/app/pan-finder")({
   component: PanFinderPage,
@@ -23,7 +23,7 @@ function PanFinderPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValid) {
-      toast.error("Enter a valid 12-digit Aadhaar number");
+      swalError("Invalid Aadhaar", "Enter a valid 12-digit Aadhaar number.");
       return;
     }
     setResult(null);
@@ -32,15 +32,15 @@ function PanFinderPage() {
     try {
       const r = await runPanSearch(clean);
       setResult(r);
-      if (r.status === "success") toast.success("PAN found");
-      else toast.info("Refunded to your wallet");
+      if (r.status === "success") swalOk("PAN found", `PAN: ${r.pan}`);
+      else swalInfo("Refunded", "Amount refunded to your wallet.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Search failed";
       if (msg === "INSUFFICIENT_BALANCE") {
         setLowBalance(true);
-        toast.error("Insufficient wallet balance");
+        swalError("Insufficient balance", "Please top-up your wallet to continue.");
       } else {
-        toast.error(msg);
+        swalError("Search failed", msg);
       }
     } finally {
       setLoading(false);
@@ -50,9 +50,9 @@ function PanFinderPage() {
   async function copyPan(pan: string) {
     try {
       await navigator.clipboard.writeText(pan);
-      toast.success("PAN copied");
+      swalOk("Copied", "PAN copied to clipboard.");
     } catch {
-      toast.error("Copy failed");
+      swalError("Copy failed");
     }
   }
 
