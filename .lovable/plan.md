@@ -1,84 +1,111 @@
-## Plan: PAN Finder ko host-side server route pe migrate karo (hosting env vars use)
 
-Aap Option 2 chahte ho. Ek chhota tweak: **Vercel-specific serverless function** likhne ki jagah hum **TanStack Start server route** banayenge (`src/routes/api/pan-find.ts`). Ye same file Vercel, Netlify, Cloudflare — sab pe kaam karega, sirf env var naam consistent rakhna hai. Buyer ke liye setup identical rahega.
+## Goal
 
-### Impact summary
+User apni marzi ka amount daale → payment gateway pe jaaye → success hone par wallet auto-credit ho. **Source code sell karne** ke liye buyer sirf 3 env vars daalke apna gateway plug kar sake — koi code change nahi.
 
-| | Before | After |
-|---|---|---|
-| PAN keys location | Supabase Edge Function Secrets | Hosting platform env vars (Vercel/Netlify/Cloudflare) |
-| PAN call path | Browser → Supabase Edge Function → PanManager | Browser → App server route → PanManager |
-| Wallet debit/refund | Supabase RPC (unchanged) | Supabase RPC (unchanged) |
-| Buyer setup | Deploy edge function + add secrets in Supabase | Just add env vars in hosting dashboard + redeploy |
-| Sellable-safe | ✅ | ✅ (keys never in repo, never in browser) |
+Provider docs (rapidxservices) login ke peeche hain, isliye plan **RapidX-style form-encoded UPI PSPs** ke typical shape par based hai (user_token / customer_mobile / amount / order_id / redirect_url → response me `result.payment_url` aur status API me `txnStatus` SUCCESS/PENDING/FAILURE). Ek jagah (config) me field names / response paths tweak karne se koi bhi similar Indian PSP fit ho jaayega.
 
-Wallet flow same rahega — debit/refund abhi bhi Supabase RPC hai. Sirf provider call ka jagah badlega. Speed impact minor: 1 extra hop hosting → Supabase, but overall same order (100-300ms).
+---
 
-### Files to change
+## Kya banega (user ke liye)
 
-**1. New: `src/routes/api/pan-find.ts`**
-- TanStack server route with `POST` handler.
-- Verify Supabase bearer token from `Authorization` header (calls `supabase.auth.getUser(token)` with publishable-key client to confirm caller is signed in).
-- Read `PAN_API_KEY` / `PAN_API_SECRET` from `process.env` inside handler.
-- Support `health_check: true` body → returns `{ outcome: "ready" | "missing_secrets", ... }` (same shape as edge function).
-- Call PanManager, return same normalized shape as current edge function: `{ outcome, pan, name, dob, tracking_id, message, raw }`.
-- CORS not needed (same-origin).
+1. **Wallet page pe "Add Money" section**
+   - Amount input (min ₹10, max ₹50,000 — admin settings me configurable)
+   - Quick chips: ₹100 / ₹500 / ₹1000 / ₹2000
+   - "Pay Now" button → gateway ke hosted checkout par redirect
+2. **Redirect flow**
+   - Success/failure ke baad user `/app/wallet/payment-return?order_id=...` par wapas aata hai
+   - Wahan hum server se status verify karke result dikhate hain (Success → wallet credited, Pending → "verification pending", Failed → refund/nothing)
+3. **Server-side polling safety net**
+   - Agar user return na kare (browser band kar de) to admin panel me "Verify pending payments" button — pending orders ki status API call karke settle karta hai
+4. **Admin Panel → Settings → "Payment Gateway" section**
+   - Min/max amount, enable/disable toggle, "Check Payment setup" button (jaise PAN check hai)
 
-**2. Edit: `src/lib/data-store.ts`**
-- Replace both `sb.functions.invoke("pan-find", ...)` calls with `fetch("/api/pan-find", { method: "POST", headers: { Authorization: "Bearer <token>", "Content-Type": "application/json" }, body: ... })`.
-- Grab access token via `sb.auth.getSession()` before the call.
-- Update `getPanServiceErrorMessage()` messages: mention hosting env vars instead of Supabase Edge Function Secrets.
-- `checkPanServiceHealth()` calls the same route with `{ health_check: true }`.
+---
 
-**3. Edit: `supabase/functions/pan-find/index.ts`**
-- Delete file (no longer needed). Buyer skips edge function deploy entirely.
+## Buyer setup (source-code khareedne wale ke liye)
 
-**4. Edit: `SETUP.md`**
-- Remove "Step 6.5: Deploy pan-find edge function" section.
-- Replace with: "Step 6: Add PAN API keys to your hosting platform"
-  - Vercel: Settings → Environment Variables → add `PAN_API_KEY` + `PAN_API_SECRET` (Production + Preview + Development scopes) → **Redeploy**.
-  - Netlify: Site settings → Environment variables → same 2 keys → trigger redeploy.
-  - Cloudflare Pages: Settings → Environment variables → same 2 keys → redeploy.
-  - Local dev: add to `.env` (already gitignored).
-- **⚠️ Big warning box:** "Do NOT prefix with `VITE_`. `VITE_PAN_API_KEY` will leak the key into the browser bundle where anyone can steal it."
+`SETUP.md` me sirf ye lines add hongi:
 
-**5. Edit: `README.md`**
-- Update "PAN API keys" section to point at hosting env vars.
-- Update Vercel deploy button URL to include `PAN_API_KEY` and `PAN_API_SECRET` in the `&env=...` query params (Vercel deploy button prompts buyer for these during import).
+```
+Hosting Dashboard (Vercel/Netlify/Cloudflare) → Environment Variables:
+  PAYMENT_API_URL     = https://pay.rapidxservices.in
+  PAYMENT_USER_TOKEN  = <apka provider token>
+  PAYMENT_API_SECRET  = <agar provider secret bhi de>   (optional)
+```
 
-**6. Edit: `.env.example`**
-- Uncomment/add:
-  ```
-  # Server-side only. Never prefix with VITE_.
-  PAN_API_KEY=
-  PAN_API_SECRET=
-  ```
+⚠️ **`VITE_` prefix mat lagana** — warna browser me leak ho jaayega (PAN jaisa warning).
 
-**7. Edit: `config.ts`**
-- Update the warning comment: remove Supabase Edge Function reference, replace with hosting env vars.
+Buyer agar dusra provider use kare (Paytm/PhonePe/Cashfree/EaseBuzz), to `config.ts` me sirf 4 lines edit karega (endpoint paths + response field names). Baaki sab kaam karega.
 
-**8. Edit: `src/routes/app.admin.tsx`**
-- "Check PAN setup" button already calls `checkPanServiceHealth()` — no change needed since data-store.ts is updated.
-- Update result messages if any hardcoded strings mention "Edge Function" — change to "PAN service".
+---
 
-### Security notes (sellable source safe)
+## Files & Changes
 
-- Repo mein koi PAN key nahi (as before).
-- Server route `process.env.PAN_API_KEY` — only readable on the server, never in browser bundle.
-- Auth check inside handler prevents anonymous abuse of buyer's PanManager quota.
-- Same wallet debit/refund pattern = user cannot be charged if provider fails.
+### Naya
 
-### What buyer does after this change (simpler than before)
+1. **`src/routes/api/payment-create.ts`** — TSS server route
+   - `POST` — auth verify (Supabase JWT) → validate amount → generate `order_id` → call provider Create Order (form-encoded) → DB me `payment_orders` row `pending` status me save → response me `payment_url` return
 
-1. Deploy repo to Vercel/Netlify/Cloudflare.
-2. Add 2 env vars in hosting dashboard: `PAN_API_KEY`, `PAN_API_SECRET`.
-3. Redeploy.
-4. Done. No Supabase CLI, no edge function deploy.
+2. **`src/routes/api/payment-verify.ts`** — TSS server route
+   - `POST { order_id }` — auth verify → provider Status API call → agar `SUCCESS` aur pehle credit nahi hua to `credit_wallet_for_payment` RPC call (idempotent) → row update
 
-### Confirm before I build
+3. **`src/routes/api/public/payment-callback.ts`** — public route (agar provider server-to-server webhook bhejta hai)
+   - Signature/token verify → status API se re-verify (double check) → wallet credit
+   - Public prefix isliye kyunki provider bina auth ke hit karega
 
-- Option 2 confirm? **Haan / Nahi**
-- Vercel-specific `api/pan-find.ts` chahiye ya **TanStack server route (`src/routes/api/pan-find.ts`) — works on all hosts**? (Recommend: server route.)
-- `supabase/functions/pan-find/` folder delete kar dun ya safety ke liye rakh dun (unused)? (Recommend: delete — cleaner for buyer.)
+4. **`src/routes/app.wallet.payment-return.tsx`** — user redirect landing page
+   - `order_id` query param se `payment-verify` call → success/pending/failed UI
 
-Aap "haan proceed" bolo (ya changes suggest karo), main build kar dunga.
+5. **Migration `add_payment_orders_and_rpcs.sql`**
+   - Table `payment_orders` (id, user_id, order_id unique, amount, status pending/success/failed, provider_txn_id, utr, raw jsonb, created_at, credited_at)
+   - GRANTs + RLS (user apne orders dekhe, admin sab dekhe)
+   - RPC `create_payment_order(_amount)` → row banaye, `order_id` return
+   - RPC `credit_wallet_for_payment(_order_id, _provider_txn_id, _utr, _raw)` → idempotent (agar pehle credit hua to skip), wallet balance + karega, `wallet_transactions` me `credit` entry
+   - RPC `mark_payment_failed(_order_id, _raw)`
+
+### Edit
+
+6. **`config.ts`** — payment section add:
+   ```ts
+   PAYMENT: {
+     CREATE_ORDER_PATH: "/api/create-order",
+     STATUS_PATH: "/api/check-order-status",
+     FIELDS: { token: "user_token", amount: "amount", orderId: "order_id",
+               mobile: "customer_mobile", redirect: "redirect_url" },
+     RESPONSE: { paymentUrlPath: "result.payment_url",
+                 statusPath: "result.txnStatus",
+                 utrPath: "result.utr",
+                 successValue: "SUCCESS", pendingValue: "PENDING" },
+     MIN_AMOUNT: 10, MAX_AMOUNT: 50000,
+   }
+   ```
+   Buyer alag provider use kare → sirf ye object edit → deploy → done.
+
+7. **`.env.example`** — `PAYMENT_API_URL`, `PAYMENT_USER_TOKEN`, `PAYMENT_API_SECRET` (server-side, no VITE_ warning)
+
+8. **`src/routes/app.wallet.tsx`** — "Add Money" UI card (amount input + quick chips + Pay Now button)
+
+9. **`src/lib/data-store.ts`** — helpers: `createPaymentOrder(amount)`, `verifyPayment(orderId)`, `listMyPayments()`
+
+10. **`src/routes/app.admin.tsx`** — Payment settings block (min/max amount, "Check Payment setup" health button, pending orders list with "Verify" action)
+
+11. **`SETUP.md` + `README.md`** — buyer instructions (hosting env vars, ⚠️ no VITE_ warning, provider swap guide)
+
+---
+
+## Security
+
+- Keys **sirf server-side** (`process.env`), browser me kabhi nahi
+- Amount validation **server-side** (client trust nahi)
+- `order_id` server-generated UUID (client-supplied nahi)
+- Wallet credit **idempotent** RPC (double-credit impossible even if callback + return page dono trigger karein)
+- Public callback route signature/token verify karta hai + status API se re-verify
+
+---
+
+## Ek cheez confirm
+
+Aap "Check Payment setup" button chahenge admin panel me (PAN jaisa) taaki buyer easily verify kar sake ki keys sahi lagi hain? Main plan me include kar chuka hun — agar nahi chahiye to bataiye.
+
+Approve karein to build karta hun. Baad me agar provider ke actual response fields alag nikle to `config.ts` ki 4 lines edit karke fix ho jaayega.

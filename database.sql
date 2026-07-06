@@ -402,3 +402,105 @@ on conflict (user_id, role) do nothing;
 -- Done. Sign up with your ADMIN_EMAIL to become admin automatically.
 -- Already signed up before adding your email? Just insert into admin_emails
 -- and re-run this whole file — the block above will grant admin retroactively.
+
+-- =====================================================================
+-- Wallet top-up (payment gateway) — safe to re-run
+-- =====================================================================
+create table if not exists public.payment_orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  order_id text not null unique,
+  amount numeric not null check (amount > 0),
+  status text not null default 'pending'
+    check (status in ('pending','success','failed')),
+  provider_order_id text,
+  utr text,
+  raw jsonb,
+  created_at timestamptz not null default now(),
+  credited_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+create index if not exists payment_orders_user_created on public.payment_orders(user_id, created_at desc);
+create index if not exists payment_orders_status on public.payment_orders(status);
+grant select, update on public.payment_orders to authenticated;
+grant all on public.payment_orders to service_role;
+alter table public.payment_orders enable row level security;
+do $$ begin
+  create policy "payment_orders read own or admin" on public.payment_orders for select
+    to authenticated using (auth.uid() = user_id or public.has_role(auth.uid(),'admin'));
+exception when duplicate_object then null; end $$;
+-- writes go through SECURITY DEFINER RPCs only; the UPDATE grant above is
+-- narrowed by lack of an UPDATE policy — RLS blocks direct writes.
+
+drop trigger if exists payment_orders_set_updated_at on public.payment_orders;
+create trigger payment_orders_set_updated_at before update on public.payment_orders
+  for each row execute function public.set_updated_at();
+
+-- RPC: create a pending payment order for the caller. Server-generated order_id.
+create or replace function public.create_payment_order(_amount numeric)
+returns table(order_id text, amount numeric)
+language plpgsql security definer set search_path = public as $$
+declare
+  _uid uuid := auth.uid();
+  _oid text;
+begin
+  if _uid is null then raise exception 'not authenticated'; end if;
+  if _amount is null or _amount <= 0 then raise exception 'amount must be > 0'; end if;
+  _oid := 'W' || to_char(now(),'YYYYMMDDHH24MISS') || upper(substr(replace(gen_random_uuid()::text,'-',''),1,8));
+  insert into public.payment_orders(user_id, order_id, amount, status)
+    values (_uid, _oid, _amount, 'pending');
+  return query select _oid, _amount;
+end $$;
+grant execute on function public.create_payment_order(numeric) to authenticated;
+
+-- RPC: idempotent credit on successful payment. Callable by the order owner
+-- OR by an admin (service-role callback path).
+create or replace function public.credit_wallet_for_payment(
+  _order_id text, _utr text, _raw jsonb
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  _uid uuid := auth.uid();
+  _owner uuid;
+  _amount numeric;
+  _status text;
+begin
+  select user_id, amount, status into _owner, _amount, _status
+    from public.payment_orders where order_id = _order_id for update;
+  if _owner is null then raise exception 'order not found'; end if;
+  if _uid is not null and _uid <> _owner and not public.has_role(_uid,'admin') then
+    raise exception 'forbidden';
+  end if;
+  if _status = 'success' then return; end if; -- idempotent
+  if _status = 'failed' then
+    -- allow late success: re-open by moving to success
+    null;
+  end if;
+
+  insert into public.wallets(user_id, balance) values (_owner, 0) on conflict do nothing;
+  update public.wallets set balance = balance + _amount where user_id = _owner;
+  insert into public.wallet_transactions(user_id, type, amount, note)
+    values (_owner, 'credit', _amount, 'Wallet top-up ('||coalesce(_utr,_order_id)||')');
+  update public.payment_orders
+    set status = 'success', utr = _utr, raw = _raw, credited_at = now()
+    where order_id = _order_id;
+end $$;
+grant execute on function public.credit_wallet_for_payment(text,text,jsonb) to authenticated;
+
+-- RPC: mark a payment failed (idempotent).
+create or replace function public.mark_payment_failed(_order_id text, _raw jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  _uid uuid := auth.uid();
+  _owner uuid;
+  _status text;
+begin
+  select user_id, status into _owner, _status
+    from public.payment_orders where order_id = _order_id for update;
+  if _owner is null then raise exception 'order not found'; end if;
+  if _uid is not null and _uid <> _owner and not public.has_role(_uid,'admin') then
+    raise exception 'forbidden';
+  end if;
+  if _status <> 'pending' then return; end if;
+  update public.payment_orders set status = 'failed', raw = _raw where order_id = _order_id;
+end $$;
+grant execute on function public.mark_payment_failed(text,jsonb) to authenticated;

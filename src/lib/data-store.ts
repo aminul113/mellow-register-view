@@ -300,6 +300,88 @@ export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
   };
 }
 
+// ---------- payment (wallet top-up) ----------
+async function callServer(path: string, body: unknown): Promise<{ data: unknown; error: Error | null; status: number }> {
+  const sb = requireSupabase();
+  const { data: sessionRes } = await sb.auth.getSession();
+  const accessToken = sessionRes.session?.access_token;
+  if (!accessToken) return { data: null, error: new Error("Unauthorized — please login again."), status: 401 };
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    });
+    let data: unknown = null;
+    try { data = await res.json(); } catch { /* empty */ }
+    if (!res.ok) {
+      const msg =
+        data && typeof data === "object" && "message" in data && typeof (data as { message?: unknown }).message === "string"
+          ? (data as { message: string }).message
+          : `HTTP ${res.status}`;
+      return { data, error: new Error(msg), status: res.status };
+    }
+    return { data, error: null, status: res.status };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error(String(e)), status: 0 };
+  }
+}
+
+export type CreatePaymentResult = { order_id: string; payment_url: string };
+export async function createPaymentOrder(amount: number): Promise<CreatePaymentResult> {
+  const { data, error } = await callServer("/api/payment-create", { amount });
+  if (error) throw error;
+  const d = (data ?? {}) as { order_id?: string; payment_url?: string; message?: string };
+  if (!d.order_id || !d.payment_url) throw new Error(d.message || "Failed to start payment");
+  return { order_id: d.order_id, payment_url: d.payment_url };
+}
+
+export type VerifyPaymentResult = {
+  status: "success" | "pending" | "failed";
+  amount?: number;
+  message?: string;
+};
+export async function verifyPayment(orderId: string): Promise<VerifyPaymentResult> {
+  const { data, error } = await callServer("/api/payment-verify", { order_id: orderId });
+  if (error) return { status: "failed", message: error.message };
+  const d = (data ?? {}) as { status?: string; amount?: number; message?: string };
+  if (d.status === "success") return { status: "success", amount: d.amount };
+  if (d.status === "pending") return { status: "pending" };
+  return { status: "failed", message: d.message };
+}
+
+export type PaymentHealth = { status: "ready" | "missing_secrets" | "error"; message: string };
+export async function checkPaymentHealth(): Promise<PaymentHealth> {
+  const { data, error } = await callServer("/api/payment-create", { health_check: true });
+  if (error) return { status: "error", message: error.message };
+  const d = (data ?? {}) as { outcome?: string; message?: string };
+  if (d.outcome === "ready") return { status: "ready", message: d.message ?? "Payment service is ready." };
+  if (d.outcome === "missing_secrets") return { status: "missing_secrets", message: d.message ?? "Missing PAYMENT_* env vars." };
+  return { status: "error", message: d.message ?? "Unexpected response." };
+}
+
+export type PaymentOrderRow = {
+  order_id: string;
+  amount: number;
+  status: "pending" | "success" | "failed";
+  utr: string | null;
+  created_at: string;
+};
+export async function listMyPayments(limit = 50): Promise<PaymentOrderRow[]> {
+  const sb = requireSupabase();
+  const { data: userRes } = await sb.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) return [];
+  const { data, error } = await sb
+    .from("payment_orders")
+    .select("order_id,amount,status,utr,created_at")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return (data ?? []) as PaymentOrderRow[];
+}
+
 // ---------- role check ----------
 export async function isCurrentUserAdmin(): Promise<boolean> {
   const sb = requireSupabase();

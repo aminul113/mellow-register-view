@@ -41,6 +41,51 @@ export const APP_CONFIG = {
   // 4) Default price (in ₹) charged per PAN search until the admin sets a
   //    price from the Admin panel. Only used as a fallback.
   DEFAULT_SEARCH_PRICE: 2,
+
+  // 5) Payment gateway (wallet top-up) — pluggable adapter.
+  //    Keys go in HOSTING env vars (Vercel/Netlify/Cloudflare):
+  //        PAYMENT_API_URL      = https://your-provider.com   (base URL, no trailing slash)
+  //        PAYMENT_USER_TOKEN   = <your provider token / api key>
+  //        PAYMENT_API_SECRET   = <optional — only if provider needs a secret too>
+  //    ⚠️ NEVER add a VITE_ prefix to the above — it would leak keys into the browser.
+  //
+  //    Different provider? Just edit the field/response mappings below. No code change.
+  //    Default shape targets RapidX-style form-encoded UPI PSPs
+  //    (create-order returns result.payment_url, status API returns result.txnStatus).
+  PAYMENT: {
+    ENABLED: true,
+    MIN_AMOUNT: 10,
+    MAX_AMOUNT: 50000,
+    QUICK_AMOUNTS: [100, 500, 1000, 2000],
+    // Endpoint paths (appended to PAYMENT_API_URL)
+    CREATE_ORDER_PATH: "/api/create-order",
+    STATUS_PATH: "/api/check-order-status",
+    // What field name the provider expects in the form-encoded body
+    FIELDS: {
+      token: "user_token",        // your token/api-key field name
+      amount: "amount",
+      orderId: "order_id",
+      mobile: "customer_mobile",
+      redirect: "redirect_url",
+      remark1: "remark1",
+      remark2: "remark2",
+    },
+    // Where inside the JSON response to read things (dot-path)
+    RESPONSE: {
+      // Create-order response
+      okFlagPath: "status",                 // "SUCCESS" | true when order created
+      okFlagValues: ["SUCCESS", "success", true, "true", 1, "1"],
+      paymentUrlPath: "result.payment_url", // where the checkout URL lives
+      providerOrderIdPath: "result.orderId",
+      messagePath: "message",
+      // Status-check response
+      statusPath: "result.txnStatus",       // "SUCCESS" | "PENDING" | "FAILURE"
+      utrPath: "result.utr",
+      amountPath: "result.amount",
+      successValues: ["SUCCESS", "success"],
+      pendingValues: ["PENDING", "pending"],
+    },
+  },
 };
 
 // =====================================================================
