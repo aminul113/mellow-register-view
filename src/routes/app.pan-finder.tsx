@@ -60,7 +60,7 @@ function PanFinderPage() {
     <div className="space-y-6 max-w-3xl mx-auto">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">PAN Finder</h1>
-        <p className="text-sm text-muted-foreground">Enter a 12-digit Aadhaar number to fetch the linked PAN.</p>
+        <p className="text-sm text-muted-foreground">Enter an Aadhaar number to fetch the linked PAN.</p>
       </div>
 
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-emerald-800 text-primary-foreground p-8 shadow-lg">
