@@ -214,8 +214,8 @@ export async function checkPanServiceHealth(): Promise<PanServiceHealth> {
 
 export async function runPanSearch(aadhaar: string): Promise<PanSearchResult> {
   const sb = requireSupabase();
-  if (!/^[0-9]{12}$/.test(aadhaar)) {
-    throw new Error("Aadhaar number must be exactly 12 digits");
+  if (!aadhaar || !aadhaar.trim()) {
+    throw new Error("Please enter an Aadhaar number");
   }
   const last4 = aadhaar.slice(-4);
 

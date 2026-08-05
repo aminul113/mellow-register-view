@@ -17,13 +17,13 @@ function PanFinderPage() {
 
   useEffect(() => { getSettings().then(setSettings).catch(() => {}); }, []);
 
-  const clean = aadhaar.replace(/\D/g, "").slice(0, 12);
-  const isValid = /^[0-9]{12}$/.test(clean);
+  const clean = aadhaar.replace(/\D/g, "");
+  const isValid = clean.length > 0;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValid) {
-      swalError("Invalid Aadhaar", "Enter a valid 12-digit Aadhaar number.");
+      swalError("Aadhaar required", "Please enter an Aadhaar number.");
       return;
     }
     setResult(null);
@@ -77,7 +77,7 @@ function PanFinderPage() {
             <input
               inputMode="numeric"
               autoComplete="off"
-              placeholder="Enter 12-digit Aadhaar number"
+              placeholder="Enter Aadhaar number"
               value={clean}
               onChange={(e) => setAadhaar(e.target.value)}
               className="flex-1 rounded-xl bg-white/95 text-foreground px-4 py-3 text-sm outline-none tracking-widest font-mono placeholder:text-muted-foreground focus:ring-4 focus:ring-white/30"
