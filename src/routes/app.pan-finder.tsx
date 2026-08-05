@@ -17,13 +17,13 @@ function PanFinderPage() {
 
   useEffect(() => { getSettings().then(setSettings).catch(() => {}); }, []);
 
-  const clean = aadhaar.replace(/\D/g, "").slice(0, 12);
-  const isValid = /^[0-9]{12}$/.test(clean);
+  const clean = aadhaar.replace(/\D/g, "");
+  const isValid = clean.length > 0;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValid) {
-      swalError("Invalid Aadhaar", "Enter a valid 12-digit Aadhaar number.");
+      swalError("Aadhaar required", "Please enter an Aadhaar number.");
       return;
     }
     setResult(null);
@@ -60,7 +60,7 @@ function PanFinderPage() {
     <div className="space-y-6 max-w-3xl mx-auto">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">PAN Finder</h1>
-        <p className="text-sm text-muted-foreground">Enter a 12-digit Aadhaar number to fetch the linked PAN.</p>
+        <p className="text-sm text-muted-foreground">Enter an Aadhaar number to fetch the linked PAN.</p>
       </div>
 
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-emerald-800 text-primary-foreground p-8 shadow-lg">
@@ -77,7 +77,7 @@ function PanFinderPage() {
             <input
               inputMode="numeric"
               autoComplete="off"
-              placeholder="Enter 12-digit Aadhaar number"
+              placeholder="Enter Aadhaar number"
               value={clean}
               onChange={(e) => setAadhaar(e.target.value)}
               className="flex-1 rounded-xl bg-white/95 text-foreground px-4 py-3 text-sm outline-none tracking-widest font-mono placeholder:text-muted-foreground focus:ring-4 focus:ring-white/30"

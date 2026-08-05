@@ -88,8 +88,8 @@ export const Route = createFileRoute("/api/pan-find")({
 
         // --- Validate input ---
         const aadhaar = String(body?.aadhaar_number ?? "").trim();
-        if (!/^[0-9]{12}$/.test(aadhaar)) {
-          return json({ outcome: "error", message: "aadhaar_number must be a valid 12-digit number" }, 400);
+        if (!aadhaar) {
+          return json({ outcome: "error", message: "aadhaar_number is required" }, 400);
         }
 
         // --- Provider secrets ---
